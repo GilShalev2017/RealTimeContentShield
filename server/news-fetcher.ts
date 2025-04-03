@@ -60,7 +60,7 @@ export async function ingestNewsArticles() {
           publishedAt: article.publishedAt,
           url: article.url,
           imageUrl: article.urlToImage,
-        },
+        }
       };
       
       // Send to Kafka
