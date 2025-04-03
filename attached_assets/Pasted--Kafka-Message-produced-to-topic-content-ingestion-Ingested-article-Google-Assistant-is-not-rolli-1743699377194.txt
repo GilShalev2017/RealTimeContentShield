@@ -1,0 +1,35 @@
+[Kafka] Message produced to topic content-ingestion
+Ingested article: Google Assistant is not rolling out to the Galaxy Watch 4 today - The Verge
+[Kafka] Error processing content ingestion: PostgresError: column "title" of relation "contents" does not exist
+    at ErrorResponse (file:///C:/temp/RealTimeContentShield/RealTimeContentShield/node_modules/postgres/src/connection.js:788:26)
+    at handle (file:///C:/temp/RealTimeContentShield/RealTimeContentShield/node_modules/postgres/src/connection.js:474:6)
+    at Socket.data (file:///C:/temp/RealTimeContentShield/RealTimeContentShield/node_modules/postgres/src/connection.js:315:9)
+    at Socket.emit (node:events:518:28)
+    at addChunk (node:internal/streams/readable:561:12)
+    at readableAddChunkPushByteMode (node:internal/streams/readable:512:3)
+    at Readable.push (node:internal/streams/readable:392:5)
+    at TCP.onStreamRead (node:internal/stream_base_commons:189:23) {
+  severity_local: 'ERROR',
+  severity: 'ERROR',
+  code: '42703',
+  position: '39',
+  file: 'parse_target.c',
+  line: '1070',
+  routine: 'checkInsertTargets'
+}
+[Kafka] Processing content ingestion message {
+  content_id: 'aab7cdaf-93c3-49a8-82a1-9813530d68a3',
+  content: 'And its going to downrank you when you do\r\n' +
+    'Image: Instagram\r\n' +
+    'Instagram is making a few new creator-focused changes to its platform, which Instagram head Adam Mosseri said are meant to make sure that … [+3367 chars]',        
+  type: 'news',
+  user_id: 'system',
+  metadata: {
+    title: 'Instagram is changing its ranking to favor original content - The Verge',
+    source: 'The Verge',
+    author: 'David Pierce',
+    publishedAt: '2022-04-20T20:55:20Z',
+    url: 'https://www.theverge.com/2022/4/20/23034356/instagram-ranking-reels-original-content-tiktok',
+    imageUrl: 'https://cdn.vox-cdn.com/thumbor/Si4eMdo4o1uyM5K8jYUe2MvoH1A=/0x177:3206x1856/fit-in/1200x630/cdn.vox-cdn.com/uploads/chorus_asset/file/21698434/Reels_IOSX_3.png'
+  }
+}
