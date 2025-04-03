@@ -6,8 +6,16 @@ import {
   stats, Stat, InsertStat,
   ContentCategories, ContentStatuses
 } from "@shared/schema";
+import { eq, desc, like, and } from "drizzle-orm";
+import { drizzle } from "drizzle-orm/postgres-js";
+import postgres from "postgres";
+import connectPg from "connect-pg-simple";
+import session from "express-session";
 
 export interface IStorage {
+  // Session store for authentication
+  sessionStore: any;
+  
   // User operations
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
@@ -51,6 +59,8 @@ export class MemStorage implements IStorage {
   private contentAnalysisIdCounter: number;
   private aiRuleIdCounter: number;
   private statsIdCounter: number;
+  
+  public sessionStore: any;
 
   constructor() {
     this.users = new Map();
@@ -64,6 +74,12 @@ export class MemStorage implements IStorage {
     this.contentAnalysisIdCounter = 1;
     this.aiRuleIdCounter = 1;
     this.statsIdCounter = 1;
+    
+    // Create in-memory session store
+    const MemoryStore = require('memorystore')(session);
+    this.sessionStore = new MemoryStore({
+      checkPeriod: 86400000 // prune expired entries every 24h
+    });
     
     // Seed default AI rules
     this.seedAiRules();
@@ -320,4 +336,327 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+export class PostgresStorage implements IStorage {
+  private db: ReturnType<typeof drizzle>;
+  private queryClient: ReturnType<typeof postgres>;
+  public sessionStore: ReturnType<typeof connectPg>;
+
+  constructor() {
+    // Initialize database connection
+    if (!process.env.DATABASE_URL) {
+      throw new Error("DATABASE_URL environment variable is required");
+    }
+
+    // Configure Postgres client
+    this.queryClient = postgres(process.env.DATABASE_URL, { max: 10 });
+    
+    // Initialize Drizzle ORM
+    this.db = drizzle(this.queryClient);
+    
+    // Create session store
+    const PostgresSessionStore = connectPg(session);
+    this.sessionStore = new PostgresSessionStore({
+      conObject: {
+        connectionString: process.env.DATABASE_URL,
+        ssl: process.env.NODE_ENV === 'production'
+      },
+      createTableIfMissing: true
+    });
+    
+    // Initialize database with seed data
+    this.initializeDatabase();
+  }
+
+  private async initializeDatabase(): Promise<void> {
+    try {
+      // Check if there are AI rules
+      const rulesCount = await this.db.select().from(aiRules);
+      if (rulesCount.length === 0) {
+        await this.seedAiRules();
+      }
+      
+      // Check if there are stats
+      const statsCount = await this.db.select().from(stats);
+      if (statsCount.length === 0) {
+        await this.seedStats();
+      }
+      
+      // Check if there are users
+      const usersCount = await this.db.select().from(users);
+      if (usersCount.length === 0) {
+        await this.seedUsers();
+      }
+      
+      console.log("Database initialized successfully");
+    } catch (error) {
+      console.error("Error initializing database:", error);
+    }
+  }
+
+  // User operations
+  async getUser(id: number): Promise<User | undefined> {
+    const result = await this.db.select().from(users).where(eq(users.id, id)).limit(1);
+    return result[0];
+  }
+
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    const result = await this.db.select().from(users).where(eq(users.username, username)).limit(1);
+    return result[0];
+  }
+
+  async createUser(user: InsertUser): Promise<User> {
+    // Ensure all required fields have values
+    const userWithDefaults = {
+      ...user,
+      role: user.role || 'user',  // Default role if not provided
+      avatarUrl: user.avatarUrl || null  // Default avatarUrl if not provided
+    };
+    
+    const result = await this.db.insert(users).values(userWithDefaults).returning();
+    return result[0];
+  }
+
+  // Content operations
+  async getContent(id: number): Promise<Content | undefined> {
+    const result = await this.db.select().from(contents).where(eq(contents.id, id)).limit(1);
+    return result[0];
+  }
+
+  async getContentByContentId(contentId: string): Promise<Content | undefined> {
+    const result = await this.db.select().from(contents).where(eq(contents.contentId, contentId)).limit(1);
+    return result[0];
+  }
+
+  async createContent(content: InsertContent): Promise<Content> {
+    // Ensure all required fields have values
+    const contentWithDefaults = {
+      ...content,
+      metadata: content.metadata || {}
+    };
+    
+    const result = await this.db.insert(contents).values(contentWithDefaults).returning();
+    
+    // Update stats after content creation
+    const latestStats = await this.getLatestStats();
+    if (latestStats) {
+      await this.updateStats(latestStats.id, { 
+        totalContent: latestStats.totalContent + 1 
+      });
+    }
+    
+    return result[0];
+  }
+
+  async listContents(limit: number, offset: number): Promise<Content[]> {
+    return this.db.select().from(contents).orderBy(desc(contents.createdAt)).limit(limit).offset(offset);
+  }
+
+  async searchContents(query: string): Promise<Content[]> {
+    return this.db.select().from(contents).where(like(contents.content, `%${query}%`));
+  }
+
+  // Content Analysis operations
+  async getContentAnalysis(id: number): Promise<ContentAnalysis | undefined> {
+    const result = await this.db.select().from(contentAnalyses).where(eq(contentAnalyses.id, id)).limit(1);
+    return result[0];
+  }
+
+  async getContentAnalysisByContentId(contentId: number): Promise<ContentAnalysis | undefined> {
+    const result = await this.db.select().from(contentAnalyses).where(eq(contentAnalyses.contentId, contentId)).limit(1);
+    return result[0];
+  }
+
+  async createContentAnalysis(analysis: InsertContentAnalysis): Promise<ContentAnalysis> {
+    // Ensure all required fields have values
+    const analysisWithDefaults = {
+      ...analysis,
+      status: analysis.status || ContentStatuses.PENDING,
+      category: analysis.category || null,
+      flagged: typeof analysis.flagged === 'boolean' ? analysis.flagged : false,
+      aiData: analysis.aiData || {}
+    };
+    
+    const result = await this.db.insert(contentAnalyses).values(analysisWithDefaults).returning();
+    
+    // Update stats after analysis creation
+    const latestStats = await this.getLatestStats();
+    if (latestStats) {
+      const updates: Partial<Stat> = {};
+      
+      if (analysisWithDefaults.flagged) {
+        updates.flaggedContent = latestStats.flaggedContent + 1;
+      }
+      
+      // Calculate average AI confidence
+      const allAnalyses = await this.db.select().from(contentAnalyses);
+      const totalConfidence = allAnalyses.reduce((sum, a) => sum + a.confidence, 0);
+      updates.aiConfidence = Math.round(totalConfidence / allAnalyses.length);
+      
+      await this.updateStats(latestStats.id, updates);
+    }
+    
+    return result[0];
+  }
+
+  async updateContentAnalysisStatus(id: number, status: string): Promise<ContentAnalysis | undefined> {
+    const result = await this.db.update(contentAnalyses)
+      .set({ status })
+      .where(eq(contentAnalyses.id, id))
+      .returning();
+    
+    return result[0];
+  }
+
+  async listContentAnalyses(limit: number, offset: number, status?: string): Promise<ContentAnalysis[]> {
+    if (status) {
+      return this.db.select().from(contentAnalyses)
+        .where(eq(contentAnalyses.status, status))
+        .orderBy(desc(contentAnalyses.createdAt))
+        .limit(limit)
+        .offset(offset);
+    }
+    
+    return this.db.select().from(contentAnalyses)
+      .orderBy(desc(contentAnalyses.createdAt))
+      .limit(limit)
+      .offset(offset);
+  }
+
+  // AI Rule operations
+  async getAiRule(id: number): Promise<AiRule | undefined> {
+    const result = await this.db.select().from(aiRules).where(eq(aiRules.id, id)).limit(1);
+    return result[0];
+  }
+
+  async createAiRule(rule: InsertAiRule): Promise<AiRule> {
+    // Ensure all required fields have values
+    const ruleWithDefaults = {
+      ...rule,
+      active: typeof rule.active === 'boolean' ? rule.active : true,
+      icon: rule.icon || null
+    };
+    
+    const result = await this.db.insert(aiRules).values(ruleWithDefaults).returning();
+    return result[0];
+  }
+
+  async updateAiRule(id: number, rule: Partial<AiRule>): Promise<AiRule | undefined> {
+    const result = await this.db.update(aiRules)
+      .set(rule)
+      .where(eq(aiRules.id, id))
+      .returning();
+    
+    return result[0];
+  }
+
+  async listAiRules(): Promise<AiRule[]> {
+    return this.db.select().from(aiRules);
+  }
+
+  // Stats operations
+  async getLatestStats(): Promise<Stat | undefined> {
+    const result = await this.db.select()
+      .from(stats)
+      .orderBy(desc(stats.date))
+      .limit(1);
+    
+    return result[0];
+  }
+
+  async createStats(insertStats: InsertStat): Promise<Stat> {
+    // Ensure all required fields have values
+    const statsWithDefaults = {
+      ...insertStats,
+      totalContent: insertStats.totalContent ?? 0,
+      flaggedContent: insertStats.flaggedContent ?? 0,
+      aiConfidence: insertStats.aiConfidence ?? 0,
+      responseTime: insertStats.responseTime ?? 0
+    };
+    
+    const result = await this.db.insert(stats).values(statsWithDefaults).returning();
+    return result[0];
+  }
+
+  async updateStats(id: number, statsUpdate: Partial<Stat>): Promise<Stat | undefined> {
+    const result = await this.db.update(stats)
+      .set(statsUpdate)
+      .where(eq(stats.id, id))
+      .returning();
+    
+    return result[0];
+  }
+
+  // Seed methods
+  private async seedAiRules() {
+    // Hate Speech Detection
+    await this.createAiRule({
+      name: "Hate Speech Detection",
+      description: "Identifies content containing language that attacks or demeans groups based on protected characteristics.",
+      category: ContentCategories.HATE_SPEECH,
+      sensitivity: 75,
+      autoAction: "flag_for_review",
+      active: true,
+      icon: "ri-spam-2-line"
+    });
+    
+    // Spam Detection
+    await this.createAiRule({
+      name: "Spam Detection",
+      description: "Identifies repetitive content, suspicious links, and commercial solicitation.",
+      category: ContentCategories.SPAM,
+      sensitivity: 90,
+      autoAction: "auto_remove",
+      active: true,
+      icon: "ri-spam-line"
+    });
+    
+    // Harassment Detection
+    await this.createAiRule({
+      name: "Harassment Detection",
+      description: "Identifies personal attacks, bullying, and targeted abuse against individuals.",
+      category: ContentCategories.HARASSMENT,
+      sensitivity: 65,
+      autoAction: "flag_for_review",
+      active: true,
+      icon: "ri-user-settings-line"
+    });
+    
+    // Explicit Content Detection
+    await this.createAiRule({
+      name: "Explicit Content Detection",
+      description: "Identifies sexual, graphic, or adult-oriented content.",
+      category: ContentCategories.EXPLICIT,
+      sensitivity: 85,
+      autoAction: "auto_remove",
+      active: true,
+      icon: "ri-eye-off-line"
+    });
+  }
+
+  private async seedStats() {
+    await this.createStats({
+      totalContent: 0,
+      flaggedContent: 0,
+      aiConfidence: 0,
+      responseTime: 230,
+      date: new Date()
+    });
+  }
+
+  private async seedUsers() {
+    // Import hash function from auth-utils module
+    const { hashPassword } = await import('./auth-utils');
+    
+    // Create user with properly hashed password
+    await this.createUser({
+      username: "admin",
+      password: await hashPassword("password123"), 
+      name: "John Smith",
+      role: "admin",
+      avatarUrl: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80"
+    });
+  }
+}
+
+// Use PostgreSQL storage instead of in-memory storage
+export const storage = new PostgresStorage();

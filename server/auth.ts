@@ -2,11 +2,9 @@ import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
 import { Express, Request, Response, NextFunction } from "express";
 import session from "express-session";
-import { scrypt, randomBytes, timingSafeEqual } from "crypto";
-import { promisify } from "util";
 import { storage } from "./storage";
 import { User as UserType } from "@shared/schema";
-import createMemoryStore from "memorystore";
+import { hashPassword, verifyPassword } from "./auth-utils";
 
 // Setup types for Express session
 declare global {
@@ -15,26 +13,7 @@ declare global {
   }
 }
 
-// Create a memory store for sessions
-const MemoryStore = createMemoryStore(session);
-
-// Promisify scrypt for async/await
-const scryptAsync = promisify(scrypt);
-
-// Password hashing function
-async function hashPassword(password: string) {
-  const salt = randomBytes(16).toString("hex");
-  const buf = (await scryptAsync(password, salt, 64)) as Buffer;
-  return `${buf.toString("hex")}.${salt}`;
-}
-
-// Password verification function
-async function verifyPassword(supplied: string, stored: string) {
-  const [hashed, salt] = stored.split(".");
-  const hashedBuf = Buffer.from(hashed, "hex");
-  const suppliedBuf = (await scryptAsync(supplied, salt, 64)) as Buffer;
-  return timingSafeEqual(hashedBuf, suppliedBuf);
-}
+// Use database session store with the storage class
 
 // Setup authentication middleware
 export function setupAuth(app: Express) {
@@ -43,9 +22,7 @@ export function setupAuth(app: Express) {
     secret: process.env.SESSION_SECRET || "moderator-platform-secret",
     resave: false,
     saveUninitialized: false,
-    store: new MemoryStore({
-      checkPeriod: 86400000 // Prune expired entries every 24h
-    }),
+    store: storage.sessionStore,
     cookie: {
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
       httpOnly: true,
