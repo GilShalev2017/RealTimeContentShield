@@ -50,11 +50,7 @@ export default function Search() {
     <>
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       
-<<<<<<< HEAD
       <div className="flex-1 flex flex-col overflow-hidden md:pl-64">
-=======
-      <div className="flex-1 flex flex-col overflow-hidden">
->>>>>>> 436e884279b69ba377195bc73602d820281e0969
         <Header onToggleSidebar={() => setSidebarOpen(true)} />
         
         <main className="flex-1 overflow-y-auto bg-gray-50 p-4 md:p-6">
@@ -151,11 +147,7 @@ export default function Search() {
                           <div className="ml-4">
                             <div className="text-sm font-medium text-gray-900">{content.content}</div>
                             <div className="text-sm text-gray-500">
-<<<<<<< HEAD
                               ID: {content.content_id} • User ID: {content.user_id}
-=======
-                              ID: {content.contentId} • User ID: {content.userId}
->>>>>>> 436e884279b69ba377195bc73602d820281e0969
                             </div>
                           </div>
                         </div>

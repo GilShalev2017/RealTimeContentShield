@@ -6,11 +6,7 @@ import {
   stats, Stat, InsertStat,
   ContentCategories, ContentStatuses
 } from "@shared/schema";
-<<<<<<< HEAD
 import { eq, desc, like, and, or, sql } from "drizzle-orm";
-=======
-import { eq, desc, like, and } from "drizzle-orm";
->>>>>>> 436e884279b69ba377195bc73602d820281e0969
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import connectPg from "connect-pg-simple";
@@ -341,6 +337,17 @@ export class MemStorage implements IStorage {
       active: true,
       icon: "ri-eye-off-line"
     });
+    
+    // Tech Company Detection
+    this.createAiRule({
+      name: "Tech Company Detection",
+      description: "Identifies mentions of technology companies and products within content.",
+      category: ContentCategories.TECH_COMPANY,
+      sensitivity: 60,
+      auto_action: "flag_for_review",
+      active: true,
+      icon: "ri-computer-line"
+    });
   }
 
   private seedStats() {
@@ -483,7 +490,6 @@ export class PostgresStorage implements IStorage {
   }
 
   async searchContents(query: string): Promise<Content[]> {
-<<<<<<< HEAD
     if (!query) {
       return [];
     }
@@ -499,9 +505,6 @@ export class PostgresStorage implements IStorage {
     );
     
     return results;
-=======
-    return this.db.select().from(contents).where(like(contents.content, `%${query}%`));
->>>>>>> 436e884279b69ba377195bc73602d820281e0969
   }
 
   // Content Analysis operations
@@ -679,6 +682,17 @@ export class PostgresStorage implements IStorage {
       auto_action: "auto_remove",
       active: true,
       icon: "ri-eye-off-line"
+    });
+    
+    // Tech Company Detection
+    await this.createAiRule({
+      name: "Tech Company Detection",
+      description: "Identifies mentions of technology companies and products within content.",
+      category: ContentCategories.TECH_COMPANY,
+      sensitivity: 60,
+      auto_action: "flag_for_review",
+      active: true,
+      icon: "ri-computer-line"
     });
   }
 

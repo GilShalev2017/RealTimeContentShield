@@ -21,18 +21,14 @@ interface ContentModerationTableProps {
 
 export default function ContentModerationTable({ onReviewContent }: ContentModerationTableProps) {
   const [filter, setFilter] = useState<string>('all');
-<<<<<<< HEAD
   const [page, setPage] = useState<number>(1);
   const [totalCount, setTotalCount] = useState<number>(0);
   const itemsPerPage = 5;
-=======
->>>>>>> 436e884279b69ba377195bc73602d820281e0969
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
   // Fetch content analyses
   const { data: contentAnalyses, isLoading } = useQuery({
-<<<<<<< HEAD
     queryKey: ['/api/content-analysis', filter, page],
     queryFn: async () => {
       const offset = (page - 1) * itemsPerPage;
@@ -45,15 +41,6 @@ export default function ContentModerationTable({ onReviewContent }: ContentModer
       // If not, we'll at least have the current page's count
       setTotalCount(result.length > 0 ? Math.max(result.length + offset, totalCount) : totalCount);
       return result;
-=======
-    queryKey: ['/api/content-analysis', filter],
-    queryFn: async () => {
-      return await contentAnalysisApi.listAnalyses(
-        5, 
-        0, 
-        filter === 'all' ? undefined : filter
-      );
->>>>>>> 436e884279b69ba377195bc73602d820281e0969
     }
   });
   
@@ -63,10 +50,7 @@ export default function ContentModerationTable({ onReviewContent }: ContentModer
       return await contentAnalysisApi.updateStatus(id, status);
     },
     onSuccess: () => {
-<<<<<<< HEAD
       // Make sure we invalidate all content analysis queries, regardless of the specific filter and page
-=======
->>>>>>> 436e884279b69ba377195bc73602d820281e0969
       queryClient.invalidateQueries({ queryKey: ['/api/content-analysis'] });
       toast({
         title: "Content status updated",
@@ -151,7 +135,6 @@ export default function ContentModerationTable({ onReviewContent }: ContentModer
           <CardTitle>Recent Flagged Content</CardTitle>
           
           <div className="mt-3 sm:mt-0 flex items-center space-x-2">
-<<<<<<< HEAD
             <Select 
               value={filter} 
               onValueChange={(value) => {
@@ -159,9 +142,6 @@ export default function ContentModerationTable({ onReviewContent }: ContentModer
                 setPage(1); // Reset to first page when filter changes
               }}
             >
-=======
-            <Select value={filter} onValueChange={setFilter}>
->>>>>>> 436e884279b69ba377195bc73602d820281e0969
               <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="Filter by category" />
               </SelectTrigger>
@@ -300,7 +280,6 @@ export default function ContentModerationTable({ onReviewContent }: ContentModer
       
       <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
         <div className="flex-1 flex justify-between sm:hidden">
-<<<<<<< HEAD
           <Button 
             variant="outline" 
             size="sm" 
@@ -317,15 +296,10 @@ export default function ContentModerationTable({ onReviewContent }: ContentModer
           >
             Next
           </Button>
-=======
-          <Button variant="outline" size="sm" disabled>Previous</Button>
-          <Button variant="outline" size="sm" disabled>Next</Button>
->>>>>>> 436e884279b69ba377195bc73602d820281e0969
         </div>
         <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
           <div>
             <p className="text-sm text-gray-700">
-<<<<<<< HEAD
               Showing <span className="font-medium">{((page - 1) * itemsPerPage) + 1}</span> to{" "}
               <span className="font-medium">
                 {Math.min(page * itemsPerPage, totalCount)}
@@ -341,19 +315,11 @@ export default function ContentModerationTable({ onReviewContent }: ContentModer
               disabled={page <= 1}
               onClick={() => setPage(prev => Math.max(prev - 1, 1))}
             >
-=======
-              Showing <span className="font-medium">1</span> to <span className="font-medium">5</span> of <span className="font-medium">45</span> results
-            </p>
-          </div>
-          <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
-            <Button variant="outline" size="sm" className="rounded-l-md">
->>>>>>> 436e884279b69ba377195bc73602d820281e0969
               <span className="sr-only">Previous</span>
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
             </Button>
-<<<<<<< HEAD
             
             {/* Calculate total pages */}
             {Array.from({ length: Math.ceil(totalCount / itemsPerPage) || 1 }).slice(0, 5).map((_, idx) => (
@@ -379,14 +345,6 @@ export default function ContentModerationTable({ onReviewContent }: ContentModer
               disabled={totalCount <= page * itemsPerPage}
               onClick={() => setPage(prev => prev + 1)}
             >
-=======
-            <Button variant="outline" size="sm" className="bg-primary-50 text-primary-600 border-primary-300">1</Button>
-            <Button variant="outline" size="sm">2</Button>
-            <Button variant="outline" size="sm">3</Button>
-            <Button variant="outline" size="sm" disabled>...</Button>
-            <Button variant="outline" size="sm">9</Button>
-            <Button variant="outline" size="sm" className="rounded-r-md">
->>>>>>> 436e884279b69ba377195bc73602d820281e0969
               <span className="sr-only">Next</span>
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />

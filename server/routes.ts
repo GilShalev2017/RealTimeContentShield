@@ -1,21 +1,9 @@
-<<<<<<< HEAD
-import { 
-  users, User, InsertUser, 
-  contents, Content, InsertContent,
-  contentAnalyses, ContentAnalysis, InsertContentAnalysis,
-  aiRules, AiRule, InsertAiRule,
-  stats, Stat, InsertStat,
-  ContentCategories, ContentStatuses
-} from "@shared/schema";
-import { eq, desc, like, and, or, sql } from "drizzle-orm";
-=======
 import express from "express";
 import type { Express } from "express";
->>>>>>> 436e884279b69ba377195bc73602d820281e0969
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
-import { kafka, CONTENT_INGESTION_TOPIC, initializeKafka } from "./kafka";
+import { kafka, CONTENT_INGESTION_TOPIC, CONTENT_ANALYSIS_TOPIC, initializeKafka } from "./kafka";
 import { setupAuth, ensureAuthenticated } from "./auth";
 import { ingestNewsArticles } from "./news-fetcher";
 import {
@@ -26,7 +14,6 @@ import {
 } from "@shared/schema";
 import { z } from "zod";
 
-<<<<<<< HEAD
 // Extended WebSocket interface with the isAlive property
 interface ExtendedWebSocket extends WebSocket {
   isAlive: boolean;
@@ -45,24 +32,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Store active connections with ping/pong for connection health
   const connections = new Set<WebSocket>();
   
-=======
-export async function registerRoutes(app: Express): Promise<Server> {
-  const httpServer = createServer(app);
-  
-  // Initialize WebSocket server for real-time updates with simpler configuration
-  // Use the noServer option to avoid binding issues on Windows
-  const wss = new WebSocketServer({ 
-    noServer: true
-  });
-  
->>>>>>> 436e884279b69ba377195bc73602d820281e0969
   // Handle upgrade manually to avoid binding issues
   httpServer.on('upgrade', function upgrade(request, socket, head) {
     if (request.url === '/ws') {
       wss.handleUpgrade(request, socket, head, function done(ws) {
         wss.emit('connection', ws, request);
       });
-<<<<<<< HEAD
     } else {
       // Reject non-matching upgrade requests
       socket.destroy();
@@ -160,19 +135,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       connections.delete(ws);
       console.log(`Active connections: ${wss.clients.size}`);
     });
-=======
-    }
-  });
-  
-  wss.on("connection", (ws) => {
-    console.log("WebSocket client connected");
-    
-    // Send initial data to client
-    sendInitialData(ws);
-    
-    ws.on("error", (error) => console.error("WebSocket error:", error));
-    ws.on("close", (code, reason) => console.log(`WebSocket client disconnected. Code: ${code}, Reason: ${reason || 'none provided'}`));
->>>>>>> 436e884279b69ba377195bc73602d820281e0969
   });
   
   // Initialize Kafka
@@ -408,15 +370,84 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Debug endpoint to check latest processing status
+  app.get("/api/debug/kafka-status", (req, res) => {
+    res.json({
+      message: "Kafka simulated processing status",
+      topics: {
+        content_ingestion: CONTENT_INGESTION_TOPIC,
+        content_analysis: CONTENT_ANALYSIS_TOPIC
+      },
+      consumers: kafka.getConsumerStatus()
+    });
+  });
+  
+  // Debug endpoint to get the latest content analysis
+  app.get("/api/debug/latest-analysis", async (req, res) => {
+    try {
+      const analyses = await storage.listContentAnalyses(5, 0);
+      
+      // Include content details
+      const enrichedAnalyses = await Promise.all(
+        analyses.map(async (analysis) => {
+          const content = await storage.getContent(analysis.content_id);
+          return {
+            ...analysis,
+            content
+          };
+        })
+      );
+      
+      res.json({
+        message: "Latest content analyses",
+        analyses: enrichedAnalyses
+      });
+    } catch (error) {
+      console.error("Error retrieving latest analyses:", error);
+      res.status(500).json({ message: "Failed to retrieve latest analyses" });
+    }
+  });
+  
+  // Debug endpoint to force reprocess a specific content item
+  app.post("/api/debug/reprocess-content/:id", async (req, res) => {
+    try {
+      const contentId = parseInt(req.params.id);
+      const content = await storage.getContent(contentId);
+      
+      if (!content) {
+        return res.status(404).json({ message: "Content not found" });
+      }
+      
+      console.log(`[DEBUG] Reprocessing content ${contentId}`);
+      
+      // Send to Kafka processing pipeline
+      await kafka.produce(CONTENT_INGESTION_TOPIC, {
+        content_id: content.content_id,
+        content: content.content,
+        type: content.type,
+        user_id: content.user_id,
+        metadata: content.metadata
+      });
+      
+      res.status(202).json({ 
+        message: "Content resubmitted for processing",
+        content: {
+          id: content.id,
+          content_id: content.content_id,
+          type: content.type
+        }
+      });
+    } catch (error) {
+      console.error("Error reprocessing content:", error);
+      res.status(500).json({ message: "Failed to reprocess content" });
+    }
+  });
+  
   return httpServer;
 }
 
 // Helper function to send initial data to a new WebSocket client
-<<<<<<< HEAD
 async function sendInitialData(ws: WebSocket) {
-=======
-async function sendInitialData(ws: any) {
->>>>>>> 436e884279b69ba377195bc73602d820281e0969
   try {
     // Send latest stats
     const stats = await storage.getLatestStats();
@@ -456,7 +487,6 @@ async function sendInitialData(ws: any) {
 // Helper function to broadcast updates to all connected clients
 function broadcastUpdate(wss: WebSocketServer, update: any) {
   wss.clients.forEach((client) => {
-<<<<<<< HEAD
     const extClient = client as ExtendedWebSocket;
     
     if (extClient.readyState === WebSocket.OPEN) {
@@ -468,10 +498,3 @@ function broadcastUpdate(wss: WebSocketServer, update: any) {
     }
   });
 }
-=======
-    if (client.readyState === WebSocket.OPEN) {
-      client.send(JSON.stringify(update));
-    }
-  });
-}
->>>>>>> 436e884279b69ba377195bc73602d820281e0969

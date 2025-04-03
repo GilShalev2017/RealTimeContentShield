@@ -55,11 +55,7 @@ export const contentApi = {
   },
   
   fetchNews: async () => {
-<<<<<<< HEAD
     const res = await apiRequest("POST", "/api/fetch-news");
-=======
-    const res = await apiRequest("POST", "/api/news/fetch");
->>>>>>> 436e884279b69ba377195bc73602d820281e0969
     return await res.json();
   }
 };
@@ -110,7 +106,6 @@ export class WebSocketService {
   private listeners: Map<string, Set<(data: any) => void>> = new Map();
   private reconnectTimer: NodeJS.Timeout | null = null;
   private isConnecting = false;
-<<<<<<< HEAD
   private reconnectAttempt = 0;
   private maxReconnectAttempts = 15; // Increased max attempts
   private connectionQueue: Array<{ type: string, data: any }> = []; // Queue for messages when offline
@@ -140,23 +135,12 @@ export class WebSocketService {
   
   private connect() {
     if (this.isConnecting || (this.socket && this.socket.readyState === WebSocket.OPEN)) {
-=======
-  
-  constructor() {
-    // Create a delayed connection to prevent race conditions
-    setTimeout(() => this.connect(), 1000);
-  }
-  
-  private connect() {
-    if (this.isConnecting || this.socket?.readyState === WebSocket.OPEN) {
->>>>>>> 436e884279b69ba377195bc73602d820281e0969
       return;
     }
     
     this.isConnecting = true;
     
     try {
-<<<<<<< HEAD
       // Handle both http/https protocol conversion to ws/wss
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       const host = window.location.host;
@@ -169,28 +153,19 @@ export class WebSocketService {
         this.socket.close();
         this.socket = null;
       }
-=======
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsUrl = `${protocol}//${window.location.host}/ws`;
-      console.log(`Connecting to WebSocket at ${wsUrl}`);
->>>>>>> 436e884279b69ba377195bc73602d820281e0969
       
       this.socket = new WebSocket(wsUrl);
       
       this.socket.onopen = () => {
         console.log('WebSocket connected successfully');
         this.isConnecting = false;
-<<<<<<< HEAD
         this.isReady = true;
         this.reconnectAttempt = 0;
         
-=======
->>>>>>> 436e884279b69ba377195bc73602d820281e0969
         if (this.reconnectTimer) {
           clearTimeout(this.reconnectTimer);
           this.reconnectTimer = null;
         }
-<<<<<<< HEAD
         
         // Process any queued messages that accumulated while offline
         if (this.connectionQueue.length > 0) {
@@ -200,14 +175,11 @@ export class WebSocketService {
           });
           this.connectionQueue = []; // Clear the queue after processing
         }
-=======
->>>>>>> 436e884279b69ba377195bc73602d820281e0969
       };
       
       this.socket.onmessage = (event) => {
         try {
           const message = JSON.parse(event.data);
-<<<<<<< HEAD
           console.log('WebSocket received message:', message.type);
           
           // Store critical updates in case of disconnection
@@ -217,8 +189,6 @@ export class WebSocketService {
             this.connectionQueue.push(message);
           }
           
-=======
->>>>>>> 436e884279b69ba377195bc73602d820281e0969
           this.notifyListeners(message.type, message.data);
         } catch (error) {
           console.error('Error parsing WebSocket message:', error);
@@ -227,7 +197,6 @@ export class WebSocketService {
       
       this.socket.onclose = (event) => {
         this.isConnecting = false;
-<<<<<<< HEAD
         this.isReady = false;
         console.log(`WebSocket disconnected. Code: ${event.code}. Reason: ${event.reason || 'No reason provided'}`);
         this.scheduleReconnect();
@@ -246,19 +215,6 @@ export class WebSocketService {
     } catch (error) {
       this.isConnecting = false;
       this.socket = null;
-=======
-        console.log(`WebSocket disconnected. Code: ${event.code}. Reason: ${event.reason}`);
-        this.scheduleReconnect();
-      };
-      
-      this.socket.onerror = (error) => {
-        this.isConnecting = false;
-        console.error('WebSocket error:', error);
-        // Don't call close here, as the onclose handler will be called automatically
-      };
-    } catch (error) {
-      this.isConnecting = false;
->>>>>>> 436e884279b69ba377195bc73602d820281e0969
       console.error('Error creating WebSocket connection:', error);
       this.scheduleReconnect();
     }
@@ -266,7 +222,6 @@ export class WebSocketService {
   
   private scheduleReconnect() {
     if (!this.reconnectTimer) {
-<<<<<<< HEAD
       this.reconnectAttempt++;
       
       if (this.reconnectAttempt <= this.maxReconnectAttempts) {
@@ -322,22 +277,10 @@ export class WebSocketService {
   
   subscribe(type: string, callback: (data: any) => void) {
     // Initialize the listener set if not already done
-=======
-      console.log('Scheduling WebSocket reconnection...');
-      this.reconnectTimer = setTimeout(() => {
-        this.reconnectTimer = null;
-        this.connect();
-      }, 5000);
-    }
-  }
-  
-  subscribe(type: string, callback: (data: any) => void) {
->>>>>>> 436e884279b69ba377195bc73602d820281e0969
     if (!this.listeners.has(type)) {
       this.listeners.set(type, new Set());
     }
     
-<<<<<<< HEAD
     // Add the callback to the set
     this.listeners.get(type)?.add(callback);
     
@@ -359,10 +302,6 @@ export class WebSocketService {
     }
     
     // Return an unsubscribe function
-=======
-    this.listeners.get(type)?.add(callback);
-    
->>>>>>> 436e884279b69ba377195bc73602d820281e0969
     return () => {
       this.listeners.get(type)?.delete(callback);
     };
@@ -370,10 +309,7 @@ export class WebSocketService {
   
   private notifyListeners(type: string, data: any) {
     if (this.listeners.has(type)) {
-<<<<<<< HEAD
       console.log(`Notifying ${this.listeners.get(type)?.size} listeners for ${type}`);
-=======
->>>>>>> 436e884279b69ba377195bc73602d820281e0969
       this.listeners.get(type)?.forEach(callback => {
         try {
           callback(data);
@@ -381,11 +317,8 @@ export class WebSocketService {
           console.error(`Error in WebSocket listener for ${type}:`, error);
         }
       });
-<<<<<<< HEAD
     } else {
       console.log(`No listeners found for ${type}`);
-=======
->>>>>>> 436e884279b69ba377195bc73602d820281e0969
     }
   }
 }
