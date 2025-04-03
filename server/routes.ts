@@ -1,7 +1,7 @@
 import express from "express";
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import { WebSocketServer } from "ws";
+import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
 import { kafka, CONTENT_INGESTION_TOPIC, initializeKafka } from "./kafka";
 import { setupAuth, ensureAuthenticated } from "./auth";
@@ -17,9 +17,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
   
   // Initialize WebSocket server for real-time updates with simpler configuration
+  // Use the noServer option to avoid binding issues on Windows
   const wss = new WebSocketServer({ 
-    server: httpServer,
-    path: '/ws'
+    noServer: true
+  });
+  
+  // Handle upgrade manually to avoid binding issues
+  httpServer.on('upgrade', function upgrade(request, socket, head) {
+    if (request.url === '/ws') {
+      wss.handleUpgrade(request, socket, head, function done(ws) {
+        wss.emit('connection', ws, request);
+      });
+    }
   });
   
   wss.on("connection", (ws) => {
@@ -248,7 +257,7 @@ async function sendInitialData(ws: any) {
 // Helper function to broadcast updates to all connected clients
 function broadcastUpdate(wss: WebSocketServer, update: any) {
   wss.clients.forEach((client) => {
-    if (client.readyState === client.OPEN) {
+    if (client.readyState === WebSocket.OPEN) {
       client.send(JSON.stringify(update));
     }
   });
