@@ -65,9 +65,9 @@ export async function initializeKafka(): Promise<void> {
       
       const content = message as Content;
       
-      // Skip non-text content for MVP
-      if (content.type !== 'text') {
-        console.log(`[Kafka] Skipping non-text content: ${content.type}`);
+      // Analyze content using valid types (text and news)
+      if (content.type !== 'text' && content.type !== 'news') {
+        console.log(`[Kafka] Skipping unsupported content type: ${content.type}`);
         return;
       }
       
@@ -78,12 +78,12 @@ export async function initializeKafka(): Promise<void> {
       
       // Save content analysis
       const contentAnalysis: InsertContentAnalysis = {
-        contentId: content.id,
+        content_id: content.id,
         category: analysis.category,
         confidence: analysis.confidence,
         flagged: analysis.flagged,
         status: analysis.status,
-        aiData: analysis.aiData
+        ai_data: analysis.aiData
       };
       
       await storage.createContentAnalysis(contentAnalysis);
@@ -92,8 +92,8 @@ export async function initializeKafka(): Promise<void> {
       const latestStats = await storage.getLatestStats();
       if (latestStats) {
         // Simple moving average for response time
-        const newResponseTime = Math.round((latestStats.responseTime + responseTime) / 2);
-        await storage.updateStats(latestStats.id, { responseTime: newResponseTime });
+        const newResponseTime = Math.round((latestStats.response_time + responseTime) / 2);
+        await storage.updateStats(latestStats.id, { response_time: newResponseTime });
       }
       
     } catch (error) {

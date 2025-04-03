@@ -27,8 +27,18 @@ export async function analyzeContent(content: Content): Promise<ContentAnalysisR
     const rules = await storage.listAiRules();
     
     // Get text to analyze
-    const textContent = `Title: ${content.title}\nContent: ${content.text}`;
-    console.log(`Analyzing content: ${content.contentId}`); // Add logging for debugging
+    let textContent = '';
+    
+    // News content has 'content' property and 'metadata' with 'title'
+    if (content.type === 'news' && content.metadata) {
+      const metadata = content.metadata as any;
+      textContent = `Title: ${metadata.title || 'No title'}\nContent: ${content.content || 'No content'}`;
+    } else {
+      // Legacy content has 'title' and 'text' properties
+      textContent = `Title: ${(content as any).title || 'No title'}\nContent: ${(content as any).text || 'No content'}`;
+    }
+    
+    console.log(`Analyzing content: ${content.content_id}`); // Add logging for debugging
     
     // Use OpenAI to analyze content
     // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
@@ -60,7 +70,7 @@ export async function analyzeContent(content: Content): Promise<ContentAnalysisR
     // Determine if content should be flagged based on rules
     const rule = rules.find(r => r.category === result.category && r.active);
     const shouldFlag = rule ? (result.confidence >= rule.sensitivity) : result.flagged;
-    const status = shouldFlag ? (rule?.autoAction === 'auto_remove' ? ContentStatuses.REMOVED : ContentStatuses.PENDING) : ContentStatuses.APPROVED;
+    const status = shouldFlag ? (rule?.auto_action === 'auto_remove' ? ContentStatuses.REMOVED : ContentStatuses.PENDING) : ContentStatuses.APPROVED;
     
     return {
       category: result.category,
@@ -78,9 +88,19 @@ export async function analyzeContent(content: Content): Promise<ContentAnalysisR
 
 // Fallback analysis using rule-based approach
 async function analyzeFallback(content: Content): Promise<ContentAnalysisResult> {
-  const textContent = `${content.title} ${content.text}`.toLowerCase();
+  let textContent = '';
+  
+  // Format content based on type
+  if (content.type === 'news' && content.metadata) {
+    const metadata = content.metadata as any;
+    textContent = `${metadata.title || ''} ${content.content || ''}`.toLowerCase();
+  } else {
+    // For legacy content
+    textContent = `${(content as any).title || ''} ${(content as any).text || ''}`.toLowerCase();
+  }
+  
   const rules = await storage.listAiRules();
-  console.log(`Fallback analyzing content: ${content.contentId}`);
+  console.log(`Fallback analyzing content: ${content.content_id}`);
   
   // Simple keyword-based detection
   const hateKeywords = ['hate', 'racist', 'discrimination', 'bigot'];
@@ -120,7 +140,7 @@ async function analyzeFallback(content: Content): Promise<ContentAnalysisResult>
   // Determine if content should be flagged based on rules
   const rule = rules.find(r => r.category === category && r.active);
   const shouldFlag = category !== ContentCategories.SAFE && rule ? (confidence >= rule.sensitivity) : false;
-  const status = shouldFlag ? (rule?.autoAction === 'auto_remove' ? ContentStatuses.REMOVED : ContentStatuses.PENDING) : ContentStatuses.APPROVED;
+  const status = shouldFlag ? (rule?.auto_action === 'auto_remove' ? ContentStatuses.REMOVED : ContentStatuses.PENDING) : ContentStatuses.APPROVED;
   
   return {
     category,
