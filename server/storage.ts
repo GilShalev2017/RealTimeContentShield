@@ -106,6 +106,7 @@ export class MemStorage implements IStorage {
       ...insertUser, 
       id,
       role: insertUser.role || 'moderator',
+      name: insertUser.name || '',
       avatarUrl: insertUser.avatarUrl || null
     };
     this.users.set(id, user);
@@ -433,7 +434,8 @@ export class PostgresStorage implements IStorage {
     // Ensure all required fields have values
     const userWithDefaults = {
       ...user,
-      role: user.role || 'user',  // Default role if not provided
+      name: user.name || '',  // Default name if not provided
+      role: user.role || 'moderator',  // Default role if not provided
       avatarUrl: user.avatarUrl || null  // Default avatarUrl if not provided
     };
     
