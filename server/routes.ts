@@ -4,6 +4,7 @@ import { createServer, type Server } from "http";
 import { WebSocketServer } from "ws";
 import { storage } from "./storage";
 import { kafka, CONTENT_INGESTION_TOPIC, initializeKafka } from "./kafka";
+import { setupAuth, ensureAuthenticated } from "./auth";
 import {
   insertContentSchema,
   insertContentAnalysisSchema,
@@ -15,8 +16,11 @@ import { z } from "zod";
 export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
   
-  // Initialize WebSocket server for real-time updates
-  const wss = new WebSocketServer({ server: httpServer });
+  // Initialize WebSocket server for real-time updates with simpler configuration
+  const wss = new WebSocketServer({ 
+    server: httpServer,
+    path: '/ws'
+  });
   
   wss.on("connection", (ws) => {
     console.log("WebSocket client connected");
@@ -24,31 +28,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // Send initial data to client
     sendInitialData(ws);
     
-    ws.on("error", console.error);
-    ws.on("close", () => console.log("WebSocket client disconnected"));
+    ws.on("error", (error) => console.error("WebSocket error:", error));
+    ws.on("close", (code, reason) => console.log(`WebSocket client disconnected. Code: ${code}, Reason: ${reason || 'none provided'}`));
   });
   
   // Initialize Kafka
   await initializeKafka();
   
-  // Authentication routes (simplified for the MVP)
-  app.post("/api/auth/login", async (req, res) => {
-    const { username, password } = req.body;
-    
-    if (!username || !password) {
-      return res.status(400).json({ message: "Username and password are required" });
-    }
-    
-    const user = await storage.getUserByUsername(username);
-    
-    if (!user || user.password !== password) {
-      return res.status(401).json({ message: "Invalid credentials" });
-    }
-    
-    // Return user without password
-    const { password: _, ...userWithoutPassword } = user;
-    res.json(userWithoutPassword);
-  });
+  // Setup authentication with Passport
+  setupAuth(app);
   
   // Content routes
   app.post("/api/content", async (req, res) => {

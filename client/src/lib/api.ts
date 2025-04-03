@@ -2,9 +2,38 @@ import { apiRequest } from "./queryClient";
 
 // Authentication API
 export const authApi = {
-  login: async (username: string, password: string) => {
-    const res = await apiRequest("POST", "/api/auth/login", { username, password });
+  login: async (data: { username: string, password: string }) => {
+    const res = await apiRequest("POST", "/api/auth/login", data);
     return await res.json();
+  },
+  
+  logout: async () => {
+    const res = await apiRequest("POST", "/api/auth/logout");
+    return await res.json();
+  },
+  
+  getCurrentUser: async () => {
+    try {
+      const res = await apiRequest("GET", "/api/auth/me");
+      return await res.json();
+    } catch (error) {
+      if (error instanceof Error && error.message.startsWith('401:')) {
+        return null;
+      }
+      throw error;
+    }
+  },
+  
+  checkAuth: async () => {
+    try {
+      await apiRequest("GET", "/api/auth/check");
+      return true;
+    } catch (error) {
+      if (error instanceof Error && error.message.startsWith('401:')) {
+        return false;
+      }
+      throw error;
+    }
   }
 };
 
@@ -70,37 +99,72 @@ export const statsApi = {
 export class WebSocketService {
   private socket: WebSocket | null = null;
   private listeners: Map<string, Set<(data: any) => void>> = new Map();
+  private reconnectTimer: NodeJS.Timeout | null = null;
+  private isConnecting = false;
   
   constructor() {
-    this.connect();
+    // Create a delayed connection to prevent race conditions
+    setTimeout(() => this.connect(), 1000);
   }
   
   private connect() {
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    this.socket = new WebSocket(`${protocol}//${window.location.host}`);
+    if (this.isConnecting || this.socket?.readyState === WebSocket.OPEN) {
+      return;
+    }
     
-    this.socket.onopen = () => {
-      console.log('WebSocket connected');
-    };
+    this.isConnecting = true;
     
-    this.socket.onmessage = (event) => {
-      try {
-        const message = JSON.parse(event.data);
-        this.notifyListeners(message.type, message.data);
-      } catch (error) {
-        console.error('Error parsing WebSocket message:', error);
-      }
-    };
-    
-    this.socket.onclose = () => {
-      console.log('WebSocket disconnected. Reconnecting...');
-      setTimeout(() => this.connect(), 3000);
-    };
-    
-    this.socket.onerror = (error) => {
-      console.error('WebSocket error:', error);
-      this.socket?.close();
-    };
+    try {
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const wsUrl = `${protocol}//${window.location.host}/ws`;
+      console.log(`Connecting to WebSocket at ${wsUrl}`);
+      
+      this.socket = new WebSocket(wsUrl);
+      
+      this.socket.onopen = () => {
+        console.log('WebSocket connected successfully');
+        this.isConnecting = false;
+        if (this.reconnectTimer) {
+          clearTimeout(this.reconnectTimer);
+          this.reconnectTimer = null;
+        }
+      };
+      
+      this.socket.onmessage = (event) => {
+        try {
+          const message = JSON.parse(event.data);
+          this.notifyListeners(message.type, message.data);
+        } catch (error) {
+          console.error('Error parsing WebSocket message:', error);
+        }
+      };
+      
+      this.socket.onclose = (event) => {
+        this.isConnecting = false;
+        console.log(`WebSocket disconnected. Code: ${event.code}. Reason: ${event.reason}`);
+        this.scheduleReconnect();
+      };
+      
+      this.socket.onerror = (error) => {
+        this.isConnecting = false;
+        console.error('WebSocket error:', error);
+        // Don't call close here, as the onclose handler will be called automatically
+      };
+    } catch (error) {
+      this.isConnecting = false;
+      console.error('Error creating WebSocket connection:', error);
+      this.scheduleReconnect();
+    }
+  }
+  
+  private scheduleReconnect() {
+    if (!this.reconnectTimer) {
+      console.log('Scheduling WebSocket reconnection...');
+      this.reconnectTimer = setTimeout(() => {
+        this.reconnectTimer = null;
+        this.connect();
+      }, 5000);
+    }
   }
   
   subscribe(type: string, callback: (data: any) => void) {
