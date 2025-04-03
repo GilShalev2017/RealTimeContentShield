@@ -1,0 +1,95 @@
+
+> rest-express@1.0.0 check
+> tsc
+
+client/src/pages/dashboard.tsx:24:28 - error TS2339: Property 'fetchNews' does not exist on type '{ submitContent: (content: any) => Promise<any>; listContents: (limit?: number, offset?: number) => Promise<any>; searchContents: (query: string) => Promise<any>; }'.
+
+24     mutationFn: contentApi.fetchNews,
+                              ~~~~~~~~~
+
+server/auth.ts:25:12 - error TS2740: Type 'typeof PGStore' is missing the following properties from type 'Store': regenerate, load, createSession, get, and 12 more.
+
+25     store: storage.sessionStore,
+              ~~~~~~~~~~~~~~~~~~~~
+
+  server/auth.ts:25:12
+    25     store: storage.sessionStore,
+                  ~~~~~~~~~~~~~~~~~~~~
+    Did you mean to use 'new' with this expression?
+
+server/news-fetcher.ts:64:9 - error TS2353: Object literal may only specify known properties, and 'createdAt' does not exist in type '{ text: string; type: string; contentId: string; source?: string | null | undefined; title?: string | null | undefined; metadata?: Json | undefined; userId?: string | undefined; }'.
+
+64         createdAt: new Date(),
+           ~~~~~~~~~
+
+server/storage.ts:105:11 - error TS2322: Type '{ id: number; name: string; password: string; username: string; role?: string | undefined; avatarUrl?: string | null | undefined; }' is not assignable to type '{ id: number; role: string; name: string; password: string; username: string; avatarUrl: string | null; }'.
+  Types of property 'role' are incompatible.
+    Type 'string | undefined' is not assignable to type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+
+105     const user: User = { ...insertUser, id };
+              ~~~~
+
+server/storage.ts:123:11 - error TS2322: Type '{ id: number; createdAt: Date; text: string; type: string; contentId: string; source?: string | null | undefined; title?: string | null | undefined; metadata?: Json | undefined; userId?: string | undefined; }' is not assignable to type '{ source: string | null; title: string | null; metadata: unknown; text: string; type: string; id: number; contentId: string; userId: string; createdAt: Date; }'.
+  Types of property 'source' are incompatible.
+    Type 'string | null | undefined' is not assignable to type 'string | null'.
+      Type 'undefined' is not assignable to type 'string | null'.
+
+123     const content: Content = {
+              ~~~~~~~
+
+server/storage.ts:149:28 - error TS2551: Property 'content' does not exist on type '{ source: string | null; title: string | null; metadata: unknown; text: string; type: string; id: number; contentId: string; userId: string; createdAt: Date; }'. Did you mean 'contentId'?
+
+149       (content) => content.content.toLowerCase().includes(query.toLowerCase())
+                               ~~~~~~~
+
+server/storage.ts:166:11 - error TS2322: Type '{ id: number; createdAt: Date; contentId: number; confidence: number; status?: string | undefined; category?: string | null | undefined; flagged?: boolean | undefined; aiData?: Json | undefined; }' is not assignable to type '{ id: number; status: string; category: string | null; flagged: boolean; contentId: number; createdAt: Date; confidence: number; aiData: unknown; }'.
+  Types of property 'status' are incompatible.
+    Type 'string | undefined' is not assignable to type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+
+166     const analysis: ContentAnalysis = {
+              ~~~~~~~~
+
+server/storage.ts:221:11 - error TS2322: Type '{ id: number; createdAt: Date; name: string; description: string; category: string; sensitivity: number; autoAction: string; icon?: string | null | undefined; active?: boolean | undefined; }' is not assignable to type '{ id: number; name: string; description: string; icon: string | null; category: string; active: boolean; createdAt: Date; sensitivity: number; autoAction: string; }'.      
+  Types of property 'icon' are incompatible.
+    Type 'string | null | undefined' is not assignable to type 'string | null'.
+      Type 'undefined' is not assignable to type 'string | null'.
+
+221     const rule: AiRule = {
+              ~~~~
+
+server/storage.ts:253:11 - error TS2322: Type '{ id: number; date: Date; totalContent?: number | undefined; flaggedContent?: number | undefined; aiConfidence?: number | undefined; responseTime?: number | undefined; }' is not assignable to type '{ id: number; date: Date; totalContent: number; flaggedContent: number; aiConfidence: number; responseTime: number; }'.
+  Types of property 'totalContent' are incompatible.
+    Type 'number | undefined' is not assignable to type 'number'.
+      Type 'undefined' is not assignable to type 'number'.
+
+253     const stats: Stat = {
+              ~~~~~
+
+server/storage.ts:358:5 - error TS2740: Type 'PGStore' is missing the following properties from type 'typeof PGStore': prototype, getEventListeners, addAbortListener, errorMonitor, and 5 more.
+
+358     this.sessionStore = new PostgresSessionStore({
+        ~~~~~~~~~~~~~~~~~
+
+server/storage.ts:455:64 - error TS2551: Property 'content' does not exist on type 'PgTableWithColumns<{ name: "contents"; schema: undefined; columns: { id: PgColumn<{ name: "id"; tableName: "contents"; dataType: "number"; columnType: "PgSerial"; data: number; driverParam: number; notNull: true; hasDefault: true; ... 6 more ...; generated: undefined; }, {}, {}>; ... 7 more ...; createdAt: PgColumn<...'. Did you mean 'contentId'?
+
+455     return this.db.select().from(contents).where(like(contents.content, `%${query}%`));
+                                                                   ~~~~~~~
+
+server/vite.ts:39:5 - error TS2322: Type '{ middlewareMode: boolean; hmr: { server: Server<typeof IncomingMessage, typeof ServerResponse>; }; allowedHosts: boolean; }' is not assignable to type 'ServerOptions'.
+  Types of property 'allowedHosts' are incompatible.
+    Type 'boolean' is not assignable to type 'true | string[] | undefined'.
+
+39     server: serverOptions,
+       ~~~~~~
+
+
+Found 12 errors in 5 files.
+
+Errors  Files
+     1  client/src/pages/dashboard.tsx:24
+     1  server/auth.ts:25
+     1  server/news-fetcher.ts:64
+     8  server/storage.ts:105
+     1  server/vite.ts:39

@@ -14,7 +14,7 @@ import session from "express-session";
 
 export interface IStorage {
   // Session store for authentication
-  sessionStore: any;
+  sessionStore: any; // Using 'any' type for session store due to compatibility issues
   
   // User operations
   getUser(id: number): Promise<User | undefined>;
@@ -102,7 +102,12 @@ export class MemStorage implements IStorage {
 
   async createUser(insertUser: InsertUser): Promise<User> {
     const id = this.userIdCounter++;
-    const user: User = { ...insertUser, id };
+    const user: User = { 
+      ...insertUser, 
+      id,
+      role: insertUser.role || 'moderator',
+      avatarUrl: insertUser.avatarUrl || null
+    };
     this.users.set(id, user);
     return user;
   }
@@ -123,6 +128,10 @@ export class MemStorage implements IStorage {
     const content: Content = { 
       ...insertContent, 
       id, 
+      title: insertContent.title || null,
+      userId: insertContent.userId || 'system',
+      source: insertContent.source || null,
+      metadata: insertContent.metadata || {},
       createdAt: new Date() 
     };
     this.contents.set(id, content);
@@ -146,7 +155,7 @@ export class MemStorage implements IStorage {
 
   async searchContents(query: string): Promise<Content[]> {
     return Array.from(this.contents.values()).filter(
-      (content) => content.content.toLowerCase().includes(query.toLowerCase())
+      (content) => content.text.toLowerCase().includes(query.toLowerCase())
     );
   }
 
@@ -165,7 +174,11 @@ export class MemStorage implements IStorage {
     const id = this.contentAnalysisIdCounter++;
     const analysis: ContentAnalysis = { 
       ...insertAnalysis, 
-      id, 
+      id,
+      status: insertAnalysis.status || ContentStatuses.PENDING,
+      category: insertAnalysis.category || null,
+      flagged: typeof insertAnalysis.flagged === 'boolean' ? insertAnalysis.flagged : false,
+      aiData: insertAnalysis.aiData || {},
       createdAt: new Date() 
     };
     this.contentAnalyses.set(id, analysis);
@@ -221,6 +234,8 @@ export class MemStorage implements IStorage {
     const rule: AiRule = { 
       ...insertRule, 
       id, 
+      active: typeof insertRule.active === 'boolean' ? insertRule.active : true,
+      icon: insertRule.icon || null,
       createdAt: new Date() 
     };
     this.aiRules.set(id, rule);
@@ -253,6 +268,10 @@ export class MemStorage implements IStorage {
     const stats: Stat = { 
       ...insertStats, 
       id, 
+      totalContent: insertStats.totalContent ?? 0,
+      flaggedContent: insertStats.flaggedContent ?? 0,
+      aiConfidence: insertStats.aiConfidence ?? 0,
+      responseTime: insertStats.responseTime ?? 0,
       date: new Date() 
     };
     this.statsData.set(id, stats);
@@ -339,7 +358,7 @@ export class MemStorage implements IStorage {
 export class PostgresStorage implements IStorage {
   private db: ReturnType<typeof drizzle>;
   private queryClient: ReturnType<typeof postgres>;
-  public sessionStore: ReturnType<typeof connectPg>;
+  public sessionStore: any; // Using 'any' type for session store due to compatibility issues
 
   constructor() {
     // Initialize database connection
@@ -355,13 +374,15 @@ export class PostgresStorage implements IStorage {
     
     // Create session store
     const PostgresSessionStore = connectPg(session);
+    // Explicitly cast the session store to 'any' to bypass type checking issues
+    // This is a workaround for TypeScript type incompatibility between different versions of the libraries
     this.sessionStore = new PostgresSessionStore({
       conObject: {
         connectionString: process.env.DATABASE_URL,
         ssl: process.env.NODE_ENV === 'production'
       },
       createTableIfMissing: true
-    });
+    }) as any;
     
     // Initialize database with seed data
     this.initializeDatabase();
@@ -452,7 +473,7 @@ export class PostgresStorage implements IStorage {
   }
 
   async searchContents(query: string): Promise<Content[]> {
-    return this.db.select().from(contents).where(like(contents.content, `%${query}%`));
+    return this.db.select().from(contents).where(like(contents.text, `%${query}%`));
   }
 
   // Content Analysis operations
