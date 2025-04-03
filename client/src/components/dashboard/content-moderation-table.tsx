@@ -21,18 +21,26 @@ interface ContentModerationTableProps {
 
 export default function ContentModerationTable({ onReviewContent }: ContentModerationTableProps) {
   const [filter, setFilter] = useState<string>('all');
+  const [page, setPage] = useState<number>(1);
+  const [totalCount, setTotalCount] = useState<number>(0);
+  const itemsPerPage = 5;
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
   // Fetch content analyses
   const { data: contentAnalyses, isLoading } = useQuery({
-    queryKey: ['/api/content-analysis', filter],
+    queryKey: ['/api/content-analysis', filter, page],
     queryFn: async () => {
-      return await contentAnalysisApi.listAnalyses(
-        5, 
-        0, 
+      const offset = (page - 1) * itemsPerPage;
+      const result = await contentAnalysisApi.listAnalyses(
+        itemsPerPage, 
+        offset, 
         filter === 'all' ? undefined : filter
       );
+      // Update the total count - we're assuming the API returns the total count
+      // If not, we'll at least have the current page's count
+      setTotalCount(result.length > 0 ? Math.max(result.length + offset, totalCount) : totalCount);
+      return result;
     }
   });
   
@@ -42,6 +50,7 @@ export default function ContentModerationTable({ onReviewContent }: ContentModer
       return await contentAnalysisApi.updateStatus(id, status);
     },
     onSuccess: () => {
+      // Make sure we invalidate all content analysis queries, regardless of the specific filter and page
       queryClient.invalidateQueries({ queryKey: ['/api/content-analysis'] });
       toast({
         title: "Content status updated",
@@ -126,7 +135,13 @@ export default function ContentModerationTable({ onReviewContent }: ContentModer
           <CardTitle>Recent Flagged Content</CardTitle>
           
           <div className="mt-3 sm:mt-0 flex items-center space-x-2">
-            <Select value={filter} onValueChange={setFilter}>
+            <Select 
+              value={filter} 
+              onValueChange={(value) => {
+                setFilter(value);
+                setPage(1); // Reset to first page when filter changes
+              }}
+            >
               <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="Filter by category" />
               </SelectTrigger>
@@ -265,28 +280,71 @@ export default function ContentModerationTable({ onReviewContent }: ContentModer
       
       <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
         <div className="flex-1 flex justify-between sm:hidden">
-          <Button variant="outline" size="sm" disabled>Previous</Button>
-          <Button variant="outline" size="sm" disabled>Next</Button>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            disabled={page <= 1}
+            onClick={() => setPage(prev => Math.max(prev - 1, 1))}
+          >
+            Previous
+          </Button>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            disabled={totalCount <= page * itemsPerPage}
+            onClick={() => setPage(prev => prev + 1)}
+          >
+            Next
+          </Button>
         </div>
         <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
           <div>
             <p className="text-sm text-gray-700">
-              Showing <span className="font-medium">1</span> to <span className="font-medium">5</span> of <span className="font-medium">45</span> results
+              Showing <span className="font-medium">{((page - 1) * itemsPerPage) + 1}</span> to{" "}
+              <span className="font-medium">
+                {Math.min(page * itemsPerPage, totalCount)}
+              </span> of{" "}
+              <span className="font-medium">{totalCount}</span> results
             </p>
           </div>
           <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
-            <Button variant="outline" size="sm" className="rounded-l-md">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="rounded-l-md"
+              disabled={page <= 1}
+              onClick={() => setPage(prev => Math.max(prev - 1, 1))}
+            >
               <span className="sr-only">Previous</span>
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
             </Button>
-            <Button variant="outline" size="sm" className="bg-primary-50 text-primary-600 border-primary-300">1</Button>
-            <Button variant="outline" size="sm">2</Button>
-            <Button variant="outline" size="sm">3</Button>
-            <Button variant="outline" size="sm" disabled>...</Button>
-            <Button variant="outline" size="sm">9</Button>
-            <Button variant="outline" size="sm" className="rounded-r-md">
+            
+            {/* Calculate total pages */}
+            {Array.from({ length: Math.ceil(totalCount / itemsPerPage) || 1 }).slice(0, 5).map((_, idx) => (
+              <Button 
+                key={idx} 
+                variant="outline" 
+                size="sm"
+                className={page === idx + 1 ? "bg-primary-50 text-primary-600 border-primary-300" : ""}
+                onClick={() => setPage(idx + 1)}
+              >
+                {idx + 1}
+              </Button>
+            ))}
+            
+            {totalCount > itemsPerPage * 5 && (
+              <Button variant="outline" size="sm" disabled>...</Button>
+            )}
+            
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="rounded-r-md"
+              disabled={totalCount <= page * itemsPerPage}
+              onClick={() => setPage(prev => prev + 1)}
+            >
               <span className="sr-only">Next</span>
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />

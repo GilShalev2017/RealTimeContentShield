@@ -28,7 +28,7 @@ interface NewsAPIResponse {
 export async function fetchNewsArticles(): Promise<NewsAPIArticle[]> {
   // Using a free and open public API that doesn't require authentication
   const response = await axios.get<NewsAPIResponse>(
-    'https://saurav.tech/NewsAPI/top-headlines/category/technology/us.json'
+    'https://saurav.tech/NewsAPI/top-headlines/category/technology/fr.json'
   );
   
   if (response.data.status === 'ok') {

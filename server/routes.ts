@@ -1,5 +1,12 @@
-import express from "express";
-import type { Express } from "express";
+import { 
+  users, User, InsertUser, 
+  contents, Content, InsertContent,
+  contentAnalyses, ContentAnalysis, InsertContentAnalysis,
+  aiRules, AiRule, InsertAiRule,
+  stats, Stat, InsertStat,
+  ContentCategories, ContentStatuses
+} from "@shared/schema";
+import { eq, desc, like, and, or, sql } from "drizzle-orm";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
@@ -14,14 +21,23 @@ import {
 } from "@shared/schema";
 import { z } from "zod";
 
+// Extended WebSocket interface with the isAlive property
+interface ExtendedWebSocket extends WebSocket {
+  isAlive: boolean;
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
   
-  // Initialize WebSocket server for real-time updates with simpler configuration
-  // Use the noServer option to avoid binding issues on Windows
+  // Initialize WebSocket server for real-time updates with more robust configuration
+  // Use the noServer option to avoid binding issues on Windows and allow custom path handling
   const wss = new WebSocketServer({ 
-    noServer: true
+    noServer: true,
+    clientTracking: true // Ensure we track clients for broadcasting
   });
+  
+  // Store active connections with ping/pong for connection health
+  const connections = new Set<WebSocket>();
   
   // Handle upgrade manually to avoid binding issues
   httpServer.on('upgrade', function upgrade(request, socket, head) {
@@ -29,17 +45,103 @@ export async function registerRoutes(app: Express): Promise<Server> {
       wss.handleUpgrade(request, socket, head, function done(ws) {
         wss.emit('connection', ws, request);
       });
+    } else {
+      // Reject non-matching upgrade requests
+      socket.destroy();
     }
   });
   
-  wss.on("connection", (ws) => {
-    console.log("WebSocket client connected");
+  // Set up ping interval to keep connections alive and detect stale clients
+  const pingInterval = setInterval(() => {
+    wss.clients.forEach((ws) => {
+      const extWs = ws as ExtendedWebSocket;
+      
+      if (extWs.readyState === WebSocket.OPEN) {
+        // If isAlive is false, terminate the connection as it's unresponsive
+        if (extWs.isAlive === false) {
+          try {
+            console.log('Terminating inactive WebSocket connection');
+            extWs.terminate();
+            connections.delete(ws);
+            return;
+          } catch (e) {
+            console.error('Error terminating socket:', e);
+          }
+        }
+        
+        // Mark as inactive until we get a pong response
+        extWs.isAlive = false;
+        
+        try {
+          // Send a ping to verify connection is still alive
+          extWs.ping();
+        } catch (err) {
+          console.error('Error pinging client:', err);
+          try {
+            extWs.terminate();
+            connections.delete(ws);
+          } catch (e) {
+            console.error('Error terminating socket:', e);
+          }
+        }
+      }
+    });
+  }, 30000); // Ping every 30 seconds
+  
+  // Handle clean shutdown if the server is terminated
+  process.on('SIGINT', () => {
+    clearInterval(pingInterval);
+    wss.close();
+    process.exit(0);
+  });
+  
+  // Handle connections
+  wss.on("connection", (ws: WebSocket) => {
+    const extWs = ws as ExtendedWebSocket;
+    extWs.isAlive = true; // Mark new connection as alive
     
-    // Send initial data to client
-    sendInitialData(ws);
+    console.log(`WebSocket client connected (${wss.clients.size} active connections)`);
+    connections.add(ws);
     
-    ws.on("error", (error) => console.error("WebSocket error:", error));
-    ws.on("close", (code, reason) => console.log(`WebSocket client disconnected. Code: ${code}, Reason: ${reason || 'none provided'}`));
+    // Send initial data to client with error handling
+    try {
+      sendInitialData(ws);
+    } catch (error) {
+      console.error('Error sending initial data:', error);
+    }
+    
+    // Handle pong responses to keep track of connection health
+    extWs.on('pong', () => {
+      extWs.isAlive = true;
+    });
+    
+    // Handle client messages (for future bidirectional features)
+    ws.on('message', (message) => {
+      try {
+        const data = JSON.parse(message.toString());
+        console.log('Received message from client:', data.type || 'unknown type');
+        
+        // Handle any client-to-server messages (future enhancement)
+        if (data.type === 'ping') {
+          ws.send(JSON.stringify({ type: 'pong', timestamp: Date.now() }));
+        }
+      } catch (error) {
+        console.error('Error handling client message:', error);
+      }
+    });
+    
+    // Handle errors
+    ws.on("error", (error) => {
+      console.error("WebSocket error:", error);
+      connections.delete(ws);
+    });
+    
+    // Handle disconnections
+    ws.on("close", (code, reason) => {
+      console.log(`WebSocket client disconnected. Code: ${code}, Reason: ${reason || 'none provided'}`);
+      connections.delete(ws);
+      console.log(`Active connections: ${wss.clients.size}`);
+    });
   });
   
   // Initialize Kafka
@@ -279,7 +381,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 }
 
 // Helper function to send initial data to a new WebSocket client
-async function sendInitialData(ws: any) {
+async function sendInitialData(ws: WebSocket) {
   try {
     // Send latest stats
     const stats = await storage.getLatestStats();
@@ -319,8 +421,14 @@ async function sendInitialData(ws: any) {
 // Helper function to broadcast updates to all connected clients
 function broadcastUpdate(wss: WebSocketServer, update: any) {
   wss.clients.forEach((client) => {
-    if (client.readyState === WebSocket.OPEN) {
-      client.send(JSON.stringify(update));
+    const extClient = client as ExtendedWebSocket;
+    
+    if (extClient.readyState === WebSocket.OPEN) {
+      try {
+        extClient.send(JSON.stringify(update));
+      } catch (error) {
+        console.error('Error broadcasting update to client:', error);
+      }
     }
   });
 }

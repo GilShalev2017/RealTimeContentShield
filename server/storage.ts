@@ -6,7 +6,7 @@ import {
   stats, Stat, InsertStat,
   ContentCategories, ContentStatuses
 } from "@shared/schema";
-import { eq, desc, like, and } from "drizzle-orm";
+import { eq, desc, like, and, or, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import connectPg from "connect-pg-simple";
@@ -479,7 +479,21 @@ export class PostgresStorage implements IStorage {
   }
 
   async searchContents(query: string): Promise<Content[]> {
-    return this.db.select().from(contents).where(like(contents.content, `%${query}%`));
+    if (!query) {
+      return [];
+    }
+    
+    const lowerCaseQuery = query.toLowerCase();
+    
+    // Use text search on different columns
+    const results = await this.db.select().from(contents).where(
+      or(
+        like(contents.content, `%${query}%`),
+        sql`lower(${contents.metadata}::text) like ${'%' + lowerCaseQuery + '%'}`
+      )
+    );
+    
+    return results;
   }
 
   // Content Analysis operations
