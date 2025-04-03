@@ -23,19 +23,23 @@ export const insertUserSchema = createInsertSchema(users).pick({
 // Content model for user-generated content
 export const contents = pgTable("contents", {
   id: serial("id").primaryKey(),
-  type: text("type").notNull(), // text, image, video, etc.
-  content: text("content").notNull(),
+  type: text("type").notNull(), // text, image, video, news, etc.
+  title: text("title"), // Title or heading of the content
+  text: text("text").notNull(), // Main content text
   contentId: text("content_id").notNull(), // Original ID from source system
-  userId: text("user_id").notNull(), // Original user ID from source system
+  userId: text("user_id").default("system").notNull(), // Original user ID from source system
+  source: text("source"), // Source of the content (e.g., platform name)
   metadata: json("metadata"), // Additional content data
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
 export const insertContentSchema = createInsertSchema(contents).pick({
   type: true,
-  content: true,
+  title: true,
+  text: true,
   contentId: true,
   userId: true,
+  source: true,
   metadata: true,
 });
 
@@ -122,6 +126,7 @@ export const ContentTypes = {
   TEXT: 'text',
   IMAGE: 'image',
   VIDEO: 'video',
+  NEWS: 'news',
   OTHER: 'other'
 };
 

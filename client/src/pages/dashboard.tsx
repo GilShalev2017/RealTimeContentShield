@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { statsApi, webSocketService } from '@/lib/api';
+import { useQuery, useMutation } from '@tanstack/react-query';
+import { statsApi, contentApi, webSocketService } from '@/lib/api';
+import { queryClient } from '@/lib/queryClient';
 import Sidebar from '@/components/layout/sidebar';
 import Header from '@/components/layout/header';
 import MetricsOverview from '@/components/dashboard/metrics-overview';
@@ -17,6 +18,24 @@ export default function Dashboard() {
   const [timeRange, setTimeRange] = useState('last_24_hours');
   const [reviewContent, setReviewContent] = useState<any>(null);
   const { toast } = useToast();
+  
+  // Mutation for fetching news content
+  const fetchNewsMutation = useMutation({
+    mutationFn: contentApi.fetchNews,
+    onSuccess: () => {
+      toast({
+        title: "News Fetching Started",
+        description: "Real news content is being fetched and analyzed in the background.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error Fetching News",
+        description: error instanceof Error ? error.message : "Unknown error occurred",
+        variant: "destructive",
+      });
+    }
+  });
 
   // Fetch latest stats
   const { data: stats, isLoading: isStatsLoading } = useQuery({
@@ -68,7 +87,7 @@ export default function Dashboard() {
     <>
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col overflow-hidden md:ml-64">
         <Header onToggleSidebar={() => setSidebarOpen(true)} />
         
         <main className="flex-1 overflow-y-auto bg-gray-50 p-4 md:p-6">
@@ -91,6 +110,16 @@ export default function Dashboard() {
                   <option value="custom">Custom range</option>
                 </select>
               </div>
+              <button 
+                className="ml-3 inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                onClick={() => fetchNewsMutation.mutate()}
+                disabled={fetchNewsMutation.isPending}
+              >
+                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                </svg>
+                {fetchNewsMutation.isPending ? 'Fetching...' : 'Fetch News'}
+              </button>
               <button className="ml-3 inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
                 <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />

@@ -27,7 +27,8 @@ export async function analyzeContent(content: Content): Promise<ContentAnalysisR
     const rules = await storage.listAiRules();
     
     // Get text to analyze
-    const textContent = content.content;
+    const textContent = `Title: ${content.title}\nContent: ${content.text}`;
+    console.log(`Analyzing content: ${content.contentId}`); // Add logging for debugging
     
     // Use OpenAI to analyze content
     // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
@@ -54,7 +55,7 @@ export async function analyzeContent(content: Content): Promise<ContentAnalysisR
     });
 
     // Parse the response
-    const result = JSON.parse(response.choices[0].message.content);
+    const result = JSON.parse(response.choices[0].message.content || '{"category": "safe", "confidence": 0, "reasons": [], "flagged": false}');
     
     // Determine if content should be flagged based on rules
     const rule = rules.find(r => r.category === result.category && r.active);
@@ -77,8 +78,9 @@ export async function analyzeContent(content: Content): Promise<ContentAnalysisR
 
 // Fallback analysis using rule-based approach
 async function analyzeFallback(content: Content): Promise<ContentAnalysisResult> {
-  const textContent = content.content.toLowerCase();
+  const textContent = `${content.title} ${content.text}`.toLowerCase();
   const rules = await storage.listAiRules();
+  console.log(`Fallback analyzing content: ${content.contentId}`);
   
   // Simple keyword-based detection
   const hateKeywords = ['hate', 'racist', 'discrimination', 'bigot'];
