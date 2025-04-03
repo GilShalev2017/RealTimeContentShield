@@ -1,11 +1,16 @@
+# Node.js dependencies
 node_modules
 dist
+
+# macOS system files
 .DS_Store
+
+# Build and public files
 server/public
 vite.config.ts.*
-<<<<<<< HEAD
-*.tar.gz".env" 
-=======
+
+# Ignore compressed archives
 *.tar.gz
->>>>>>> 436e884279b69ba377195bc73602d820281e0969
-".env" 
+
+# Ignore environment variables
+.env
