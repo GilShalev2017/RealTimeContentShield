@@ -104,7 +104,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Enrich with content data
       const enrichedAnalyses = await Promise.all(
         analyses.map(async (analysis) => {
-          const content = await storage.getContent(analysis.contentId);
+          const content = await storage.getContent(analysis.content_id);
           return {
             ...analysis,
             content
@@ -134,7 +134,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Notify connected clients of the status change
-      const content = await storage.getContent(updatedAnalysis.contentId);
+      const content = await storage.getContent(updatedAnalysis.content_id);
       broadcastUpdate(wss, {
         type: 'content_status_update',
         data: { ...updatedAnalysis, content }
@@ -214,7 +214,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // News fetcher route
+  // News fetcher routes
+  // Public route for demo purposes
+  app.post("/api/fetch-news", async (req, res) => {
+    try {
+      console.log("Starting news ingestion (public route)...");
+      
+      // Run news fetching in the background
+      ingestNewsArticles()
+        .then(success => {
+          console.log("News ingestion completed, success:", success);
+          
+          // Update stats and notify connected clients
+          storage.getLatestStats().then(stats => {
+            if (stats) {
+              broadcastUpdate(wss, {
+                type: 'stats_update',
+                data: stats
+              });
+            }
+          });
+        })
+        .catch(err => console.error("News ingestion error:", err));
+      
+      // Immediately return to client
+      res.status(202).json({ message: "News fetching started" });
+    } catch (error) {
+      console.error("Error triggering news fetch:", error);
+      res.status(500).json({ message: "Failed to start news fetching" });
+    }
+  });
+  
+  // Protected route for authenticated users
   app.post("/api/news/fetch", ensureAuthenticated, async (req, res) => {
     try {
       console.log("Starting news ingestion...");
@@ -261,7 +292,7 @@ async function sendInitialData(ws: any) {
     const analyses = await storage.listContentAnalyses(5, 0, ContentStatuses.PENDING);
     const enrichedAnalyses = await Promise.all(
       analyses.map(async (analysis) => {
-        const content = await storage.getContent(analysis.contentId);
+        const content = await storage.getContent(analysis.content_id);
         return {
           ...analysis,
           content
