@@ -24,44 +24,40 @@ export const insertUserSchema = createInsertSchema(users).pick({
 export const contents = pgTable("contents", {
   id: serial("id").primaryKey(),
   type: text("type").notNull(), // text, image, video, news, etc.
-  title: text("title"), // Title or heading of the content
-  text: text("text").notNull(), // Main content text
-  contentId: text("content_id").notNull(), // Original ID from source system
-  userId: text("user_id").default("system").notNull(), // Original user ID from source system
-  source: text("source"), // Source of the content (e.g., platform name)
+  content: text("content").notNull(), // Main content text
+  content_id: text("content_id").notNull(), // Original ID from source system
+  user_id: text("user_id").default("system").notNull(), // Original user ID from source system
   metadata: json("metadata"), // Additional content data
-  createdAt: timestamp("created_at").defaultNow().notNull(),
+  created_at: timestamp("created_at").defaultNow().notNull(),
 });
 
 export const insertContentSchema = createInsertSchema(contents).pick({
   type: true,
-  title: true,
-  text: true,
-  contentId: true,
-  userId: true,
-  source: true,
+  content: true,
+  content_id: true,
+  user_id: true,
   metadata: true,
 });
 
 // ContentAnalysis model for AI analysis results
 export const contentAnalyses = pgTable("content_analyses", {
   id: serial("id").primaryKey(),
-  contentId: integer("content_id").notNull(),
+  content_id: integer("content_id").notNull(),
   category: text("category"), // hate_speech, spam, harassment, explicit, etc.
   confidence: integer("confidence").notNull(), // 0-100
   flagged: boolean("flagged").default(false).notNull(),
   status: text("status").default("pending").notNull(), // pending, reviewed, removed
-  aiData: json("ai_data"), // Raw AI analysis data
-  createdAt: timestamp("created_at").defaultNow().notNull(),
+  ai_data: json("ai_data"), // Raw AI analysis data
+  created_at: timestamp("created_at").defaultNow().notNull(),
 });
 
 export const insertContentAnalysisSchema = createInsertSchema(contentAnalyses).pick({
-  contentId: true,
+  content_id: true,
   category: true, 
   confidence: true,
   flagged: true,
   status: true,
-  aiData: true,
+  ai_data: true,
 });
 
 // AI Rules model for moderation rules
@@ -71,10 +67,10 @@ export const aiRules = pgTable("ai_rules", {
   description: text("description").notNull(),
   category: text("category").notNull(),
   sensitivity: integer("sensitivity").notNull(), // 0-100
-  autoAction: text("auto_action").notNull(), // flag, remove, etc.
+  auto_action: text("auto_action").notNull(), // flag, remove, etc.
   active: boolean("active").default(true).notNull(),
   icon: text("icon").default("ri-spam-2-line"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
+  created_at: timestamp("created_at").defaultNow().notNull(),
 });
 
 export const insertAiRuleSchema = createInsertSchema(aiRules).pick({
@@ -82,7 +78,7 @@ export const insertAiRuleSchema = createInsertSchema(aiRules).pick({
   description: true,
   category: true,
   sensitivity: true,
-  autoAction: true,
+  auto_action: true,
   active: true,
   icon: true,
 });
@@ -90,18 +86,18 @@ export const insertAiRuleSchema = createInsertSchema(aiRules).pick({
 // Stats model for platform analytics
 export const stats = pgTable("stats", {
   id: serial("id").primaryKey(),
-  totalContent: integer("total_content").default(0).notNull(),
-  flaggedContent: integer("flagged_content").default(0).notNull(),
-  aiConfidence: integer("ai_confidence").default(0).notNull(),
-  responseTime: integer("response_time").default(0).notNull(),
+  total_content: integer("total_content").default(0).notNull(),
+  flagged_content: integer("flagged_content").default(0).notNull(),
+  ai_confidence: integer("ai_confidence").default(0).notNull(),
+  response_time: integer("response_time").default(0).notNull(),
   date: timestamp("date").defaultNow().notNull(),
 });
 
 export const insertStatsSchema = createInsertSchema(stats).pick({
-  totalContent: true,
-  flaggedContent: true,
-  aiConfidence: true,
-  responseTime: true,
+  total_content: true,
+  flagged_content: true,
+  ai_confidence: true,
+  response_time: true,
   date: true,
 });
 

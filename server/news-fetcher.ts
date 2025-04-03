@@ -50,12 +50,13 @@ export async function ingestNewsArticles() {
       
       // Create content object for our system
       const content: InsertContent = {
-        contentId: uuidv4(),
-        title: article.title,
-        text: article.content,
+        content_id: uuidv4(),
+        content: article.content,
         type: ContentTypes.NEWS,
-        source: article.source.name,
+        user_id: "system",
         metadata: {
+          title: article.title,
+          source: article.source.name,
           author: article.author,
           publishedAt: article.publishedAt,
           url: article.url,

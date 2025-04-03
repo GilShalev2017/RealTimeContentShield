@@ -119,20 +119,20 @@ export class MemStorage implements IStorage {
 
   async getContentByContentId(contentId: string): Promise<Content | undefined> {
     return Array.from(this.contents.values()).find(
-      (content) => content.contentId === contentId
+      (content) => content.content_id === contentId
     );
   }
 
   async createContent(insertContent: InsertContent): Promise<Content> {
     const id = this.contentIdCounter++;
     const content: Content = { 
-      ...insertContent, 
-      id, 
-      title: insertContent.title || null,
-      userId: insertContent.userId || 'system',
-      source: insertContent.source || null,
+      id,
+      type: insertContent.type, 
+      content: insertContent.content,
+      content_id: insertContent.content_id,
+      user_id: insertContent.user_id || "system", // Use default if not provided
       metadata: insertContent.metadata || {},
-      createdAt: new Date() 
+      created_at: new Date() 
     };
     this.contents.set(id, content);
     
@@ -140,7 +140,7 @@ export class MemStorage implements IStorage {
     const latestStats = await this.getLatestStats();
     if (latestStats) {
       await this.updateStats(latestStats.id, { 
-        totalContent: latestStats.totalContent + 1 
+        total_content: latestStats.total_content + 1 
       });
     }
     
@@ -149,13 +149,13 @@ export class MemStorage implements IStorage {
 
   async listContents(limit: number, offset: number): Promise<Content[]> {
     return Array.from(this.contents.values())
-      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+      .sort((a, b) => b.created_at.getTime() - a.created_at.getTime())
       .slice(offset, offset + limit);
   }
 
   async searchContents(query: string): Promise<Content[]> {
     return Array.from(this.contents.values()).filter(
-      (content) => content.text.toLowerCase().includes(query.toLowerCase())
+      (content) => content.content.toLowerCase().includes(query.toLowerCase())
     );
   }
 
@@ -166,20 +166,21 @@ export class MemStorage implements IStorage {
 
   async getContentAnalysisByContentId(contentId: number): Promise<ContentAnalysis | undefined> {
     return Array.from(this.contentAnalyses.values()).find(
-      (analysis) => analysis.contentId === contentId
+      (analysis) => analysis.content_id === contentId
     );
   }
 
   async createContentAnalysis(insertAnalysis: InsertContentAnalysis): Promise<ContentAnalysis> {
     const id = this.contentAnalysisIdCounter++;
-    const analysis: ContentAnalysis = { 
-      ...insertAnalysis, 
+    const analysis: ContentAnalysis = {
       id,
+      content_id: insertAnalysis.content_id,
+      confidence: insertAnalysis.confidence,
       status: insertAnalysis.status || ContentStatuses.PENDING,
       category: insertAnalysis.category || null,
       flagged: typeof insertAnalysis.flagged === 'boolean' ? insertAnalysis.flagged : false,
-      aiData: insertAnalysis.aiData || {},
-      createdAt: new Date() 
+      ai_data: insertAnalysis.ai_data || {},
+      created_at: new Date()
     };
     this.contentAnalyses.set(id, analysis);
     
@@ -189,13 +190,13 @@ export class MemStorage implements IStorage {
       const updates: Partial<Stat> = {};
       
       if (analysis.flagged) {
-        updates.flaggedContent = latestStats.flaggedContent + 1;
+        updates.flagged_content = latestStats.flagged_content + 1;
       }
       
       // Calculate average AI confidence
       const allAnalyses = Array.from(this.contentAnalyses.values());
       const totalConfidence = allAnalyses.reduce((sum, a) => sum + a.confidence, 0);
-      updates.aiConfidence = Math.round(totalConfidence / allAnalyses.length);
+      updates.ai_confidence = Math.round(totalConfidence / allAnalyses.length);
       
       await this.updateStats(latestStats.id, updates);
     }
@@ -220,7 +221,7 @@ export class MemStorage implements IStorage {
     }
     
     return analyses
-      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+      .sort((a, b) => b.created_at.getTime() - a.created_at.getTime())
       .slice(offset, offset + limit);
   }
 
@@ -231,12 +232,16 @@ export class MemStorage implements IStorage {
 
   async createAiRule(insertRule: InsertAiRule): Promise<AiRule> {
     const id = this.aiRuleIdCounter++;
-    const rule: AiRule = { 
-      ...insertRule, 
-      id, 
+    const rule: AiRule = {
+      id,
+      name: insertRule.name,
+      description: insertRule.description,
+      category: insertRule.category,
+      sensitivity: insertRule.sensitivity,
+      auto_action: insertRule.auto_action,
       active: typeof insertRule.active === 'boolean' ? insertRule.active : true,
       icon: insertRule.icon || null,
-      createdAt: new Date() 
+      created_at: new Date()
     };
     this.aiRules.set(id, rule);
     return rule;
@@ -265,14 +270,13 @@ export class MemStorage implements IStorage {
 
   async createStats(insertStats: InsertStat): Promise<Stat> {
     const id = this.statsIdCounter++;
-    const stats: Stat = { 
-      ...insertStats, 
-      id, 
-      totalContent: insertStats.totalContent ?? 0,
-      flaggedContent: insertStats.flaggedContent ?? 0,
-      aiConfidence: insertStats.aiConfidence ?? 0,
-      responseTime: insertStats.responseTime ?? 0,
-      date: new Date() 
+    const stats: Stat = {
+      id,
+      total_content: insertStats.total_content ?? 0,
+      flagged_content: insertStats.flagged_content ?? 0,
+      ai_confidence: insertStats.ai_confidence ?? 0,
+      response_time: insertStats.response_time ?? 0,
+      date: insertStats.date || new Date()
     };
     this.statsData.set(id, stats);
     return stats;
@@ -295,7 +299,7 @@ export class MemStorage implements IStorage {
       description: "Identifies content containing language that attacks or demeans groups based on protected characteristics.",
       category: ContentCategories.HATE_SPEECH,
       sensitivity: 75,
-      autoAction: "flag_for_review",
+      auto_action: "flag_for_review",
       active: true,
       icon: "ri-spam-2-line"
     });
@@ -306,7 +310,7 @@ export class MemStorage implements IStorage {
       description: "Identifies repetitive content, suspicious links, and commercial solicitation.",
       category: ContentCategories.SPAM,
       sensitivity: 90,
-      autoAction: "auto_remove",
+      auto_action: "auto_remove",
       active: true,
       icon: "ri-spam-line"
     });
@@ -317,7 +321,7 @@ export class MemStorage implements IStorage {
       description: "Identifies personal attacks, bullying, and targeted abuse against individuals.",
       category: ContentCategories.HARASSMENT,
       sensitivity: 65,
-      autoAction: "flag_for_review",
+      auto_action: "flag_for_review",
       active: true,
       icon: "ri-user-settings-line"
     });
@@ -328,7 +332,7 @@ export class MemStorage implements IStorage {
       description: "Identifies sexual, graphic, or adult-oriented content.",
       category: ContentCategories.EXPLICIT,
       sensitivity: 85,
-      autoAction: "auto_remove",
+      auto_action: "auto_remove",
       active: true,
       icon: "ri-eye-off-line"
     });
@@ -336,10 +340,10 @@ export class MemStorage implements IStorage {
 
   private seedStats() {
     this.createStats({
-      totalContent: 0,
-      flaggedContent: 0,
-      aiConfidence: 0,
-      responseTime: 230,
+      total_content: 0,
+      flagged_content: 0,
+      ai_confidence: 0,
+      response_time: 230,
       date: new Date()
     });
   }
@@ -444,7 +448,7 @@ export class PostgresStorage implements IStorage {
   }
 
   async getContentByContentId(contentId: string): Promise<Content | undefined> {
-    const result = await this.db.select().from(contents).where(eq(contents.contentId, contentId)).limit(1);
+    const result = await this.db.select().from(contents).where(eq(contents.content_id, contentId)).limit(1);
     return result[0];
   }
 
@@ -461,7 +465,7 @@ export class PostgresStorage implements IStorage {
     const latestStats = await this.getLatestStats();
     if (latestStats) {
       await this.updateStats(latestStats.id, { 
-        totalContent: latestStats.totalContent + 1 
+        total_content: latestStats.total_content + 1 
       });
     }
     
@@ -469,11 +473,11 @@ export class PostgresStorage implements IStorage {
   }
 
   async listContents(limit: number, offset: number): Promise<Content[]> {
-    return this.db.select().from(contents).orderBy(desc(contents.createdAt)).limit(limit).offset(offset);
+    return this.db.select().from(contents).orderBy(desc(contents.created_at)).limit(limit).offset(offset);
   }
 
   async searchContents(query: string): Promise<Content[]> {
-    return this.db.select().from(contents).where(like(contents.text, `%${query}%`));
+    return this.db.select().from(contents).where(like(contents.content, `%${query}%`));
   }
 
   // Content Analysis operations
@@ -483,7 +487,7 @@ export class PostgresStorage implements IStorage {
   }
 
   async getContentAnalysisByContentId(contentId: number): Promise<ContentAnalysis | undefined> {
-    const result = await this.db.select().from(contentAnalyses).where(eq(contentAnalyses.contentId, contentId)).limit(1);
+    const result = await this.db.select().from(contentAnalyses).where(eq(contentAnalyses.content_id, contentId)).limit(1);
     return result[0];
   }
 
@@ -494,7 +498,7 @@ export class PostgresStorage implements IStorage {
       status: analysis.status || ContentStatuses.PENDING,
       category: analysis.category || null,
       flagged: typeof analysis.flagged === 'boolean' ? analysis.flagged : false,
-      aiData: analysis.aiData || {}
+      ai_data: analysis.ai_data || {}
     };
     
     const result = await this.db.insert(contentAnalyses).values(analysisWithDefaults).returning();
@@ -505,13 +509,13 @@ export class PostgresStorage implements IStorage {
       const updates: Partial<Stat> = {};
       
       if (analysisWithDefaults.flagged) {
-        updates.flaggedContent = latestStats.flaggedContent + 1;
+        updates.flagged_content = latestStats.flagged_content + 1;
       }
       
       // Calculate average AI confidence
       const allAnalyses = await this.db.select().from(contentAnalyses);
       const totalConfidence = allAnalyses.reduce((sum, a) => sum + a.confidence, 0);
-      updates.aiConfidence = Math.round(totalConfidence / allAnalyses.length);
+      updates.ai_confidence = Math.round(totalConfidence / allAnalyses.length);
       
       await this.updateStats(latestStats.id, updates);
     }
@@ -532,13 +536,13 @@ export class PostgresStorage implements IStorage {
     if (status) {
       return this.db.select().from(contentAnalyses)
         .where(eq(contentAnalyses.status, status))
-        .orderBy(desc(contentAnalyses.createdAt))
+        .orderBy(desc(contentAnalyses.created_at))
         .limit(limit)
         .offset(offset);
     }
     
     return this.db.select().from(contentAnalyses)
-      .orderBy(desc(contentAnalyses.createdAt))
+      .orderBy(desc(contentAnalyses.created_at))
       .limit(limit)
       .offset(offset);
   }
@@ -588,10 +592,10 @@ export class PostgresStorage implements IStorage {
     // Ensure all required fields have values
     const statsWithDefaults = {
       ...insertStats,
-      totalContent: insertStats.totalContent ?? 0,
-      flaggedContent: insertStats.flaggedContent ?? 0,
-      aiConfidence: insertStats.aiConfidence ?? 0,
-      responseTime: insertStats.responseTime ?? 0
+      total_content: insertStats.total_content ?? 0,
+      flagged_content: insertStats.flagged_content ?? 0,
+      ai_confidence: insertStats.ai_confidence ?? 0,
+      response_time: insertStats.response_time ?? 0
     };
     
     const result = await this.db.insert(stats).values(statsWithDefaults).returning();
@@ -615,7 +619,7 @@ export class PostgresStorage implements IStorage {
       description: "Identifies content containing language that attacks or demeans groups based on protected characteristics.",
       category: ContentCategories.HATE_SPEECH,
       sensitivity: 75,
-      autoAction: "flag_for_review",
+      auto_action: "flag_for_review",
       active: true,
       icon: "ri-spam-2-line"
     });
@@ -626,7 +630,7 @@ export class PostgresStorage implements IStorage {
       description: "Identifies repetitive content, suspicious links, and commercial solicitation.",
       category: ContentCategories.SPAM,
       sensitivity: 90,
-      autoAction: "auto_remove",
+      auto_action: "auto_remove",
       active: true,
       icon: "ri-spam-line"
     });
@@ -637,7 +641,7 @@ export class PostgresStorage implements IStorage {
       description: "Identifies personal attacks, bullying, and targeted abuse against individuals.",
       category: ContentCategories.HARASSMENT,
       sensitivity: 65,
-      autoAction: "flag_for_review",
+      auto_action: "flag_for_review",
       active: true,
       icon: "ri-user-settings-line"
     });
@@ -648,7 +652,7 @@ export class PostgresStorage implements IStorage {
       description: "Identifies sexual, graphic, or adult-oriented content.",
       category: ContentCategories.EXPLICIT,
       sensitivity: 85,
-      autoAction: "auto_remove",
+      auto_action: "auto_remove",
       active: true,
       icon: "ri-eye-off-line"
     });
@@ -656,10 +660,10 @@ export class PostgresStorage implements IStorage {
 
   private async seedStats() {
     await this.createStats({
-      totalContent: 0,
-      flaggedContent: 0,
-      aiConfidence: 0,
-      responseTime: 230,
+      total_content: 0,
+      flagged_content: 0,
+      ai_confidence: 0,
+      response_time: 230,
       date: new Date()
     });
   }
