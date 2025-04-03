@@ -18,7 +18,7 @@ export default function Header({ onToggleSidebar }: HeaderProps) {
   const [searchQuery, setSearchQuery] = useState('');
   
   return (
-    <header className="bg-white border-b border-gray-200 z-10">
+    <header className="bg-white border-b border-gray-200 z-10 sticky top-0">
       <div className="flex items-center justify-between h-16 px-6">
         <div className="flex items-center">
           <Button 

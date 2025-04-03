@@ -5,6 +5,7 @@ import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
 import { kafka, CONTENT_INGESTION_TOPIC, initializeKafka } from "./kafka";
 import { setupAuth, ensureAuthenticated } from "./auth";
+import { ingestNewsArticles } from "./news-fetcher";
 import {
   insertContentSchema,
   insertContentAnalysisSchema,
@@ -210,6 +211,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(stats);
     } catch (error) {
       res.status(500).json({ message: "Failed to retrieve stats" });
+    }
+  });
+  
+  // News fetcher route
+  app.post("/api/news/fetch", ensureAuthenticated, async (req, res) => {
+    try {
+      console.log("Starting news ingestion...");
+      
+      // Run news fetching in the background
+      ingestNewsArticles()
+        .then(success => {
+          console.log("News ingestion completed, success:", success);
+          
+          // Update stats and notify connected clients
+          storage.getLatestStats().then(stats => {
+            if (stats) {
+              broadcastUpdate(wss, {
+                type: 'stats_update',
+                data: stats
+              });
+            }
+          });
+        })
+        .catch(err => console.error("News ingestion error:", err));
+      
+      // Immediately return to client
+      res.status(202).json({ message: "News fetching started" });
+    } catch (error) {
+      console.error("Error triggering news fetch:", error);
+      res.status(500).json({ message: "Failed to start news fetching" });
     }
   });
   

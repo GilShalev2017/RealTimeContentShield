@@ -52,6 +52,11 @@ export const contentApi = {
   searchContents: async (query: string) => {
     const res = await apiRequest("GET", `/api/content/search?q=${encodeURIComponent(query)}`);
     return await res.json();
+  },
+  
+  fetchNews: async () => {
+    const res = await apiRequest("POST", "/api/news/fetch");
+    return await res.json();
   }
 };
 
