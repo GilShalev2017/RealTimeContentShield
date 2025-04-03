@@ -1,4 +1,7 @@
+<<<<<<< HEAD
 import './env';
+=======
+>>>>>>> 436e884279b69ba377195bc73602d820281e0969
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";

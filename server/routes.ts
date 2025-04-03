@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import { 
   users, User, InsertUser, 
   contents, Content, InsertContent,
@@ -7,6 +8,10 @@ import {
   ContentCategories, ContentStatuses
 } from "@shared/schema";
 import { eq, desc, like, and, or, sql } from "drizzle-orm";
+=======
+import express from "express";
+import type { Express } from "express";
+>>>>>>> 436e884279b69ba377195bc73602d820281e0969
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
@@ -21,6 +26,7 @@ import {
 } from "@shared/schema";
 import { z } from "zod";
 
+<<<<<<< HEAD
 // Extended WebSocket interface with the isAlive property
 interface ExtendedWebSocket extends WebSocket {
   isAlive: boolean;
@@ -39,12 +45,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Store active connections with ping/pong for connection health
   const connections = new Set<WebSocket>();
   
+=======
+export async function registerRoutes(app: Express): Promise<Server> {
+  const httpServer = createServer(app);
+  
+  // Initialize WebSocket server for real-time updates with simpler configuration
+  // Use the noServer option to avoid binding issues on Windows
+  const wss = new WebSocketServer({ 
+    noServer: true
+  });
+  
+>>>>>>> 436e884279b69ba377195bc73602d820281e0969
   // Handle upgrade manually to avoid binding issues
   httpServer.on('upgrade', function upgrade(request, socket, head) {
     if (request.url === '/ws') {
       wss.handleUpgrade(request, socket, head, function done(ws) {
         wss.emit('connection', ws, request);
       });
+<<<<<<< HEAD
     } else {
       // Reject non-matching upgrade requests
       socket.destroy();
@@ -142,6 +160,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       connections.delete(ws);
       console.log(`Active connections: ${wss.clients.size}`);
     });
+=======
+    }
+  });
+  
+  wss.on("connection", (ws) => {
+    console.log("WebSocket client connected");
+    
+    // Send initial data to client
+    sendInitialData(ws);
+    
+    ws.on("error", (error) => console.error("WebSocket error:", error));
+    ws.on("close", (code, reason) => console.log(`WebSocket client disconnected. Code: ${code}, Reason: ${reason || 'none provided'}`));
+>>>>>>> 436e884279b69ba377195bc73602d820281e0969
   });
   
   // Initialize Kafka
@@ -381,7 +412,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 }
 
 // Helper function to send initial data to a new WebSocket client
+<<<<<<< HEAD
 async function sendInitialData(ws: WebSocket) {
+=======
+async function sendInitialData(ws: any) {
+>>>>>>> 436e884279b69ba377195bc73602d820281e0969
   try {
     // Send latest stats
     const stats = await storage.getLatestStats();
@@ -421,6 +456,7 @@ async function sendInitialData(ws: WebSocket) {
 // Helper function to broadcast updates to all connected clients
 function broadcastUpdate(wss: WebSocketServer, update: any) {
   wss.clients.forEach((client) => {
+<<<<<<< HEAD
     const extClient = client as ExtendedWebSocket;
     
     if (extClient.readyState === WebSocket.OPEN) {
@@ -432,3 +468,10 @@ function broadcastUpdate(wss: WebSocketServer, update: any) {
     }
   });
 }
+=======
+    if (client.readyState === WebSocket.OPEN) {
+      client.send(JSON.stringify(update));
+    }
+  });
+}
+>>>>>>> 436e884279b69ba377195bc73602d820281e0969

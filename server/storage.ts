@@ -6,7 +6,11 @@ import {
   stats, Stat, InsertStat,
   ContentCategories, ContentStatuses
 } from "@shared/schema";
+<<<<<<< HEAD
 import { eq, desc, like, and, or, sql } from "drizzle-orm";
+=======
+import { eq, desc, like, and } from "drizzle-orm";
+>>>>>>> 436e884279b69ba377195bc73602d820281e0969
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import connectPg from "connect-pg-simple";
@@ -479,6 +483,7 @@ export class PostgresStorage implements IStorage {
   }
 
   async searchContents(query: string): Promise<Content[]> {
+<<<<<<< HEAD
     if (!query) {
       return [];
     }
@@ -494,6 +499,9 @@ export class PostgresStorage implements IStorage {
     );
     
     return results;
+=======
+    return this.db.select().from(contents).where(like(contents.content, `%${query}%`));
+>>>>>>> 436e884279b69ba377195bc73602d820281e0969
   }
 
   // Content Analysis operations
